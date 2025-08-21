@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { 
   ChartBarIcon, 
   ChatBubbleLeftRightIcon, 
@@ -7,17 +7,48 @@ import {
   DocumentTextIcon,
   ClockIcon
 } from '@heroicons/react/24/outline'
+import MessageList from '../components/MessageList'
 
 const Dashboard: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'overview' | 'messages'>('overview');
+
   return (
     <div className="p-6">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Newsroom Dashboard</h1>
         <p className="text-gray-600 mt-2">Monitor and summarize your Slack activity</p>
+        
+        {/* Tab Navigation */}
+        <div className="mt-6 border-b border-gray-200">
+          <nav className="-mb-px flex space-x-8">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'overview'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Overview
+            </button>
+            <button
+              onClick={() => setActiveTab('messages')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'messages'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Messages
+            </button>
+          </nav>
+        </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      {activeTab === 'overview' && (
+        <>
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="card">
           <div className="flex items-center">
             <div className="flex-shrink-0">
@@ -161,6 +192,12 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       </div>
+        </>
+      )}
+
+      {activeTab === 'messages' && (
+        <MessageList />
+      )}
     </div>
   )
 }

@@ -6,7 +6,7 @@ interface AuthState {
   // State
   user: AuthUser | null;
   accessToken: string | null;
-  refreshToken: string | null;
+  refreshTokenValue: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
@@ -30,7 +30,7 @@ export const useAuthStore = create<AuthState>()(
       // Initial state
       user: null,
       accessToken: null,
-      refreshToken: null,
+      refreshTokenValue: null,
       isAuthenticated: false,
       isLoading: false,
       error: null,
@@ -59,7 +59,7 @@ export const useAuthStore = create<AuthState>()(
             set({
               user: data.data.user,
               accessToken: data.data.accessToken,
-              refreshToken: data.data.refreshToken,
+              refreshTokenValue: data.data.refreshToken,
               isAuthenticated: true,
               slackConnected: true,
               isLoading: false,
@@ -81,7 +81,7 @@ export const useAuthStore = create<AuthState>()(
         set({
           user: null,
           accessToken: null,
-          refreshToken: null,
+          refreshTokenValue: null,
           isAuthenticated: false,
           slackConnected: false,
           error: null,
@@ -89,9 +89,9 @@ export const useAuthStore = create<AuthState>()(
       },
 
       refreshToken: async () => {
-        const { refreshToken } = get();
+        const { refreshTokenValue } = get();
         
-        if (!refreshToken) {
+        if (!refreshTokenValue) {
           get().logout();
           return;
         }
@@ -102,7 +102,7 @@ export const useAuthStore = create<AuthState>()(
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ refreshToken }),
+            body: JSON.stringify({ refreshToken: refreshTokenValue }),
           });
 
           const data = await response.json();
@@ -114,7 +114,7 @@ export const useAuthStore = create<AuthState>()(
           if (data.success && data.data) {
             set({
               accessToken: data.data.accessToken,
-              refreshToken: data.data.refreshToken,
+              refreshTokenValue: data.data.refreshToken,
               isAuthenticated: true,
             });
           } else {
@@ -131,7 +131,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       setTokens: (accessToken: string, refreshToken: string) => {
-        set({ accessToken, refreshToken, isAuthenticated: true });
+        set({ accessToken, refreshTokenValue: refreshToken, isAuthenticated: true });
       },
 
       setError: (error: string | null) => {
@@ -155,7 +155,7 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({
         user: state.user,
         accessToken: state.accessToken,
-        refreshToken: state.refreshToken,
+        refreshToken: state.refreshTokenValue,
         isAuthenticated: state.isAuthenticated,
         slackConnected: state.slackConnected,
       }),
@@ -189,9 +189,9 @@ export const isTokenExpired = (token: string): boolean => {
 
 // Auto-refresh token when needed
 export const setupTokenRefresh = () => {
-  const { accessToken, refreshToken } = useAuthStore.getState();
+  const { accessToken, refreshTokenValue } = useAuthStore.getState();
   
-  if (!accessToken || !refreshToken) {
+  if (!accessToken || !refreshTokenValue) {
     return;
   }
 

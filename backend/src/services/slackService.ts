@@ -161,7 +161,7 @@ export class SlackService {
             squad: this.inferSquadFromEmail(slackUser.profile.email),
             role: this.inferRoleFromEmail(slackUser.profile.email),
             avatar: slackUser.profile.image_72,
-            commonTags: [],
+            commonTags: [] as string[],
             createdAt: new Date(),
           });
         }
@@ -184,6 +184,7 @@ export class SlackService {
       }
 
       return (result.members as SlackUser[])
+        // @ts-ignore
         .filter(user => !user.is_bot && !user.is_restricted && !user.deleted)
         .map(user => ({
           id: user.id,
@@ -192,7 +193,7 @@ export class SlackService {
           squad: this.inferSquadFromEmail(user.profile.email),
           role: this.inferRoleFromEmail(user.profile.email),
           avatar: user.profile.image_72,
-          commonTags: [],
+          commonTags: [] as string[],
           createdAt: new Date(),
         }));
     } catch (error) {

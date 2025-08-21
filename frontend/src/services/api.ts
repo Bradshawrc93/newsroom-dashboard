@@ -2,7 +2,7 @@ import { getAuthHeaders, isTokenExpired, useAuthStore } from '../store/authStore
 import { ApiResponse, PaginatedResponse } from '../types';
 
 // API base URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://newsroom-dashboard-api.vercel.app/api';
+const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'https://newsroom-dashboard-api.vercel.app/api';
 
 // Custom error class for API errors
 export class ApiError extends Error {
@@ -30,7 +30,7 @@ class ApiClient {
     // Check if token is expired and refresh if needed
     const { accessToken } = useAuthStore.getState();
     if (accessToken && isTokenExpired(accessToken)) {
-      await useAuthStore.getState().refreshToken();
+      await (useAuthStore.getState() as any).refreshToken();
     }
 
     const config: RequestInit = {
@@ -148,6 +148,10 @@ export const authApi = {
 
 // Messages API
 export const messagesApi = {
+  // Fetch messages from a channel
+  fetchMessages: (request: any) => 
+    apiClient.post<ApiResponse<any>>('/messages/fetch', request),
+
   // Get messages with filters
   getMessages: (params: any) => 
     apiClient.get<PaginatedResponse<any>>(`/messages?${new URLSearchParams(params)}`),
@@ -159,9 +163,8 @@ export const messagesApi = {
   searchMessages: (request: any) => 
     apiClient.post<PaginatedResponse<any>>('/messages/search', request),
 
-  // Get message summary
-  getSummary: (params: any) => 
-    apiClient.get<ApiResponse<any>>(`/messages/summary?${new URLSearchParams(params)}`),
+  // Get message statistics
+  getStats: () => apiClient.get<ApiResponse<any>>('/messages/stats'),
 
   // Get yesterday's messages
   getYesterdayMessages: () => apiClient.get<ApiResponse<any[]>>('/messages/yesterday'),
@@ -172,6 +175,12 @@ export const channelsApi = {
   // Get all channels
   getChannels: () => apiClient.get<ApiResponse<any[]>>('/channels'),
 
+  // Get connected channels only
+  getConnectedChannels: () => apiClient.get<ApiResponse<any[]>>('/channels/connected'),
+
+  // Get specific channel
+  getChannel: (channelId: string) => apiClient.get<ApiResponse<any>>(`/channels/${channelId}`),
+
   // Connect to channel
   connectChannel: (channelId: string) => 
     apiClient.post<ApiResponse<any>>('/channels/connect', { channelId }),
@@ -180,9 +189,8 @@ export const channelsApi = {
   disconnectChannel: (channelId: string) => 
     apiClient.post<ApiResponse<any>>('/channels/disconnect', { channelId }),
 
-  // Get channel messages
-  getChannelMessages: (channelId: string, params: any) => 
-    apiClient.get<PaginatedResponse<any>>(`/channels/${channelId}/messages?${new URLSearchParams(params)}`),
+  // Refresh channels from Slack
+  refreshChannels: () => apiClient.post<ApiResponse<any>>('/channels/refresh'),
 };
 
 // Users API

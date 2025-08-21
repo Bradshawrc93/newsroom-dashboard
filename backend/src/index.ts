@@ -48,19 +48,14 @@ app.get('/health', (req, res) => {
 // Import routes
 import authRoutes from './routes/auth';
 import squadRoutes from './routes/squads';
+import messageRoutes from './routes/messages';
+import channelRoutes from './routes/channels';
 
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/squads', squadRoutes);
-
-// Placeholder routes for other endpoints
-app.use('/api/messages', (req, res) => {
-  res.json({ message: 'Messages routes - coming soon' });
-});
-
-app.use('/api/channels', (req, res) => {
-  res.json({ message: 'Channels routes - coming soon' });
-});
+app.use('/api/messages', messageRoutes);
+app.use('/api/channels', channelRoutes);
 
 app.use('/api/users', (req, res) => {
   res.json({ message: 'Users routes - coming soon' });

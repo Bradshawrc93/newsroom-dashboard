@@ -22,13 +22,13 @@ const FILES = {
 
 // Default data structures
 const DEFAULT_DATA = {
-  messages: { messages: [], lastUpdated: new Date().toISOString() },
-  users: { users: [], lastUpdated: new Date().toISOString() },
-  channels: { channels: [], lastUpdated: new Date().toISOString() },
-  tags: { tags: [], lastUpdated: new Date().toISOString() },
-  summaries: { summaries: [], lastUpdated: new Date().toISOString() },
-  associations: { associations: [], learningStats: { totalPredictions: 0, accuratePredictions: 0, accuracy: 0 }, lastUpdated: new Date().toISOString() },
-  cache: { cache: {}, lastUpdated: new Date().toISOString() },
+  messages: { messages: [] as any[], lastUpdated: new Date().toISOString() },
+  users: { users: [] as any[], lastUpdated: new Date().toISOString() },
+  channels: { channels: [] as any[], lastUpdated: new Date().toISOString() },
+  tags: { tags: [] as any[], lastUpdated: new Date().toISOString() },
+  summaries: { summaries: [] as any[], lastUpdated: new Date().toISOString() },
+  associations: { associations: [] as any[], learningStats: { totalPredictions: 0, accuratePredictions: 0, accuracy: 0 }, lastUpdated: new Date().toISOString() },
+  cache: { cache: {} as any, lastUpdated: new Date().toISOString() },
 };
 
 // Initialize files if they don't exist
@@ -105,14 +105,14 @@ export class JsonStorage<T> {
   }
 }
 
-// Export specific storage instances
-export const messageStorage = new JsonStorage('messages', DEFAULT_DATA.messages);
-export const userStorage = new JsonStorage('users', DEFAULT_DATA.users);
-export const channelStorage = new JsonStorage('channels', DEFAULT_DATA.channels);
-export const tagStorage = new JsonStorage('tags', DEFAULT_DATA.tags);
-export const summaryStorage = new JsonStorage('summaries', DEFAULT_DATA.summaries);
-export const associationStorage = new JsonStorage('associations', DEFAULT_DATA.associations);
-export const cacheStorage = new JsonStorage('cache', DEFAULT_DATA.cache);
+// Export specific storage instances with proper typing
+export const messageStorage = new JsonStorage<typeof DEFAULT_DATA.messages>('messages', DEFAULT_DATA.messages);
+export const userStorage = new JsonStorage<typeof DEFAULT_DATA.users>('users', DEFAULT_DATA.users);
+export const channelStorage = new JsonStorage<typeof DEFAULT_DATA.channels>('channels', DEFAULT_DATA.channels);
+export const tagStorage = new JsonStorage<typeof DEFAULT_DATA.tags>('tags', DEFAULT_DATA.tags);
+export const summaryStorage = new JsonStorage<typeof DEFAULT_DATA.summaries>('summaries', DEFAULT_DATA.summaries);
+export const associationStorage = new JsonStorage<typeof DEFAULT_DATA.associations>('associations', DEFAULT_DATA.associations);
+export const cacheStorage = new JsonStorage<typeof DEFAULT_DATA.cache>('cache', DEFAULT_DATA.cache);
 
 // Export file paths for backup operations
 export { FILES, DATA_DIR };

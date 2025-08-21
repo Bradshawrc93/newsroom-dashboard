@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  UserGroupIcon, 
+  // UserGroupIcon, 
   HashtagIcon, 
   UserIcon, 
   TagIcon,

@@ -44,7 +44,7 @@ const Login: React.FC = () => {
 
   const handleSlackLogin = () => {
     // Redirect to Slack OAuth
-    const clientId = import.meta.env.VITE_SLACK_CLIENT_ID
+    const clientId = (import.meta as any).env?.VITE_SLACK_CLIENT_ID
     const redirectUri = encodeURIComponent(window.location.origin + '/login')
     const scope = encodeURIComponent('channels:read,channels:history,users:read,users:read.email')
     
