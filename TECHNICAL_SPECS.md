@@ -482,6 +482,8 @@ data/
 - [ ] Create summary scheduling system
 - [ ] Add summary storage and display
 - [ ] Generate morning greeting and highlights
+- [ ] Add summary UI to dashboard
+- [ ] Implement summary caching and optimization
 
 ### 📋 Phase 3: Sorting, Filtering, and UI (PENDING)
 - [ ] Implement sorting/filtering by person/keyword/channel/squad
@@ -515,9 +517,20 @@ data/
 ## 🎯 Next Development Priorities
 
 ### Immediate Next Steps (Choose One)
-1. **Daily Summary Generation** - Connect OpenAI and create daily rundowns
+1. **Daily Summary Generation** - Connect OpenAI and create daily rundowns (RECOMMENDED)
 2. **Advanced Filtering** - Implement sorting/filtering by person/keyword/channel/squad
 3. **Learning System** - Add AI optimization and prediction features
+
+### 🎯 **Next Development Session: Daily Summary Generation**
+
+**Objective**: Implement AI-powered daily summaries using OpenAI to process yesterday's Slack messages and generate morning rundowns.
+
+**Key Tasks**:
+- Connect OpenAI service to message processing pipeline
+- Create summary generation endpoints
+- Implement summary storage and retrieval
+- Add summary UI to dashboard
+- Test with real Slack data
 
 ### Current Status
 - ✅ **Foundation Complete**: Squad system, authentication, deployment ready
