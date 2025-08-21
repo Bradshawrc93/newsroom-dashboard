@@ -1,10 +1,56 @@
-import React from 'react'
+import React, { useEffect } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline'
+import { useAuthStore } from '../store/authStore'
+import toast from 'react-hot-toast'
 
 const Login: React.FC = () => {
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const { login, isLoading, error, isAuthenticated } = useAuthStore()
+
+  // Check if user is already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/')
+    }
+  }, [isAuthenticated, navigate])
+
+  // Handle OAuth callback
+  useEffect(() => {
+    const code = searchParams.get('code')
+    const error = searchParams.get('error')
+    
+    if (error) {
+      toast.error(`Slack authorization failed: ${error}`)
+      return
+    }
+    
+    if (code) {
+      handleSlackCallback(code)
+    }
+  }, [searchParams])
+
+  const handleSlackCallback = async (code: string) => {
+    try {
+      await login(code)
+      toast.success('Successfully connected to Slack!')
+      navigate('/')
+    } catch (error) {
+      console.error('Login error:', error)
+      toast.error('Failed to connect to Slack. Please try again.')
+    }
+  }
+
   const handleSlackLogin = () => {
-    // TODO: Implement Slack OAuth
-    console.log('Slack login clicked')
+    // Redirect to Slack OAuth
+    const clientId = import.meta.env.VITE_SLACK_CLIENT_ID
+    const redirectUri = encodeURIComponent(window.location.origin + '/login')
+    const scope = encodeURIComponent('channels:read,channels:history,users:read,users:read.email')
+    
+    const slackAuthUrl = `https://slack.com/oauth/v2/authorize?client_id=${clientId}&scope=${scope}&redirect_uri=${redirectUri}`
+    
+    window.location.href = slackAuthUrl
   }
 
   return (
@@ -33,14 +79,27 @@ const Login: React.FC = () => {
               </p>
             </div>
             
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-md p-4">
+                <p className="text-sm text-red-600">{error}</p>
+              </div>
+            )}
+            
             <button
               onClick={handleSlackLogin}
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#4A154B] hover:bg-[#3a0f3a] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#4A154B] transition-colors duration-200"
+              disabled={isLoading}
+              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#4A154B] hover:bg-[#3a0f3a] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#4A154B] transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M6 15a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm0 2a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm6-8a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm0 2a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm6 6a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm0 2a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/>
-              </svg>
-              Sign in with Slack
+              {isLoading ? (
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+              ) : (
+                <>
+                  <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M6 15a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm0 2a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm6-8a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm0 2a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm6 6a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm0 2a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/>
+                  </svg>
+                  Sign in with Slack
+                </>
+              )}
             </button>
             
             <div className="text-xs text-gray-500 text-center">

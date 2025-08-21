@@ -7,7 +7,8 @@ import {
   TagIcon,
   ChartBarIcon,
   Cog6ToothIcon,
-  BellIcon
+  BellIcon,
+  UserGroupIcon
 } from '@heroicons/react/24/outline'
 
 const Layout: React.FC = () => {
@@ -15,6 +16,7 @@ const Layout: React.FC = () => {
 
   const navigation = [
     { name: 'Dashboard', href: '/', icon: HomeIcon },
+    { name: 'Squads', href: '/squads', icon: UserGroupIcon },
     { name: 'Messages', href: '/messages', icon: ChatBubbleLeftRightIcon },
     { name: 'Users', href: '/users', icon: UsersIcon },
     { name: 'Tags', href: '/tags', icon: TagIcon },

@@ -4,13 +4,9 @@ import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
-import { PrismaClient } from '@prisma/client';
 
 // Load environment variables
 dotenv.config();
-
-// Initialize Prisma client
-export const prisma = new PrismaClient();
 
 // Create Express app
 const app = express();
@@ -49,11 +45,15 @@ app.get('/health', (req, res) => {
   });
 });
 
-// API routes (to be implemented)
-app.use('/api/auth', (req, res) => {
-  res.json({ message: 'Auth routes - coming soon' });
-});
+// Import routes
+import authRoutes from './routes/auth';
+import squadRoutes from './routes/squads';
 
+// API routes
+app.use('/api/auth', authRoutes);
+app.use('/api/squads', squadRoutes);
+
+// Placeholder routes for other endpoints
 app.use('/api/messages', (req, res) => {
   res.json({ message: 'Messages routes - coming soon' });
 });
@@ -99,21 +99,25 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('SIGTERM received, shutting down gracefully');
-  await prisma.$disconnect();
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
   console.log('SIGINT received, shutting down gracefully');
-  await prisma.$disconnect();
   process.exit(0);
 });
 
+// Import initialization
+import { initializeData } from './utils/initializeData';
+
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
   console.log(`🔗 API base URL: http://localhost:${PORT}/api`);
+  
+  // Initialize data
+  await initializeData();
 });
 
 export default app;
