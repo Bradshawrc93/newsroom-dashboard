@@ -1,0 +1,100 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String    @id
+  name      String
+  email     String?
+  squad     String?
+  role      String?
+  avatar    String?
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  messages Message[]
+
+  @@map("users")
+}
+
+model Channel {
+  id          String    @id
+  name        String
+  squad       String?
+  isPrivate   Boolean   @default(false) @map("is_private")
+  memberCount Int       @default(0) @map("member_count")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  messages Message[]
+
+  @@map("channels")
+}
+
+model Message {
+  id        String    @id
+  channelId String    @map("channel_id")
+  userId    String    @map("user_id")
+  text      String
+  timestamp DateTime
+  threadId  String?   @map("thread_id")
+  squad     String?
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  channel Channel @relation(fields: [channelId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+  tags    MessageTag[]
+
+  @@map("messages")
+}
+
+model Tag {
+  id           Int           @id @default(autoincrement())
+  name         String        @unique
+  category     String
+  confidence   Float         @default(0.0)
+  usageCount   Int           @default(0) @map("usage_count")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  messages MessageTag[]
+
+  @@map("tags")
+}
+
+model MessageTag {
+  messageId String @map("message_id")
+  tagId     Int    @map("tag_id")
+  confidence Float @default(1.0)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  tag     Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([messageId, tagId])
+  @@map("message_tags")
+}
+
+model Summary {
+  id           Int      @id @default(autoincrement())
+  date         DateTime
+  channelIds   String   @map("channel_ids") // JSON array
+  content      String
+  keyTopics    String?  @map("key_topics") // JSON array
+  participants String?  @map("participants") // JSON array
+  sentiment    String?
+  aiTokensUsed Int      @default(0) @map("ai_tokens_used")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("summaries")
+}
