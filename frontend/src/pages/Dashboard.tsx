@@ -17,6 +17,16 @@ interface DashboardStats {
   aiConnected: boolean;
 }
 
+type TimeRange = 'today' | 'week' | 'month' | 'lastMonth' | 'custom';
+
+interface DateRangeConfig {
+  label: string;
+  icon: string;
+  startDate: Date;
+  endDate: Date;
+  limit?: number;
+}
+
 const Dashboard: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [groupedMessages, setGroupedMessages] = useState<GroupedMessages>({});
@@ -30,24 +40,106 @@ const Dashboard: React.FC = () => {
   });
   const [dismissedMessages, setDismissedMessages] = useState<Set<string>>(new Set());
   const [showDismissed, setShowDismissed] = useState(false);
+  const [activeTimeRange, setActiveTimeRange] = useState<TimeRange>('today');
+  const [customDate, setCustomDate] = useState<Date>(new Date());
 
   useEffect(() => {
     loadDashboardData();
     checkAIConnection();
   }, []);
 
+  useEffect(() => {
+    // Reload data when time range changes
+    loadDashboardData();
+  }, [activeTimeRange, customDate]);
+
+  const getDateRangeConfig = (timeRange: TimeRange, customDate?: Date): DateRangeConfig => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    switch (timeRange) {
+      case 'today':
+        const todayEnd = new Date(today);
+        todayEnd.setHours(23, 59, 59, 999);
+        return {
+          label: 'Today',
+          icon: '📅',
+          startDate: today,
+          endDate: todayEnd,
+          limit: undefined // No limit for today
+        };
+      
+      case 'week':
+        const weekStart = new Date(today);
+        weekStart.setDate(today.getDate() - today.getDay()); // Start of week (Sunday)
+        return {
+          label: 'This Week',
+          icon: '📊',
+          startDate: weekStart,
+          endDate: now,
+          limit: undefined // No limit for week
+        };
+      
+      case 'month':
+        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        return {
+          label: 'This Month',
+          icon: '📈',
+          startDate: monthStart,
+          endDate: now,
+          limit: undefined // No limit for month
+        };
+      
+      case 'lastMonth':
+        const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0, 23, 59, 59);
+        return {
+          label: 'Last Month',
+          icon: '📋',
+          startDate: lastMonthStart,
+          endDate: lastMonthEnd,
+          limit: undefined // No limit for last month
+        };
+      
+      case 'custom':
+        const selectedDate = customDate || today;
+        const customStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+        const customEnd = new Date(customStart);
+        customEnd.setHours(23, 59, 59, 999);
+        return {
+          label: format(selectedDate, 'MMM dd'),
+          icon: '🗓️',
+          startDate: customStart,
+          endDate: customEnd,
+          limit: undefined // No limit for custom date
+        };
+      
+      default:
+        return getDateRangeConfig('today');
+    }
+  };
+
   const loadDashboardData = async () => {
     setLoading(true);
     setError(null);
     
     try {
-      console.log('Loading dashboard data...');
+      const dateConfig = getDateRangeConfig(activeTimeRange, customDate);
+      console.log(`Loading dashboard data for ${dateConfig.label}...`);
       
-      // Load messages
-      const response = await messagesApi.getMessages({
-        limit: 100,
+      // Load messages with proper date filtering
+      const params: any = {
+        startDate: dateConfig.startDate.toISOString(),
+        endDate: dateConfig.endDate.toISOString(),
         offset: 0,
-      });
+      };
+
+      // Only add limit for today view (others get unlimited)
+      if (dateConfig.limit) {
+        params.limit = dateConfig.limit;
+      }
+
+      const response = await messagesApi.getMessages(params);
 
       if (response.success) {
         const fetchedMessages = response.data.messages;
@@ -207,6 +299,73 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
 
+          {/* Time Range Controls */}
+          <div className="bg-white rounded-lg p-4 shadow mb-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm font-medium text-gray-700">Time Range:</span>
+                
+                {/* Quick Select Buttons */}
+                <div className="flex space-x-1">
+                  {[
+                    { key: 'today' as TimeRange, label: 'Today', icon: '📅' },
+                    { key: 'week' as TimeRange, label: 'This Week', icon: '📊' },
+                    { key: 'month' as TimeRange, label: 'This Month', icon: '📈' },
+                    { key: 'lastMonth' as TimeRange, label: 'Last Month', icon: '📋' },
+                  ].map((option) => (
+                    <button
+                      key={option.key}
+                      onClick={() => setActiveTimeRange(option.key)}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                        activeTimeRange === option.key
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      <span className="mr-1">{option.icon}</span>
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Custom Date Picker */}
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-600">Or choose a day:</span>
+                <input
+                  type="date"
+                  value={format(customDate, 'yyyy-MM-dd')}
+                  onChange={(e) => {
+                    setCustomDate(new Date(e.target.value));
+                    setActiveTimeRange('custom');
+                  }}
+                  max={format(new Date(), 'yyyy-MM-dd')}
+                  className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            {/* Current Selection Display */}
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center space-x-2">
+                  <span className="text-gray-600">Showing:</span>
+                  <span className="font-medium text-gray-900">
+                    {getDateRangeConfig(activeTimeRange, customDate).icon} {getDateRangeConfig(activeTimeRange, customDate).label}
+                  </span>
+                  {activeTimeRange !== 'today' && (
+                    <span className="text-gray-500">
+                      ({format(getDateRangeConfig(activeTimeRange, customDate).startDate, 'MMM dd')} - {format(getDateRangeConfig(activeTimeRange, customDate).endDate, 'MMM dd')})
+                    </span>
+                  )}
+                </div>
+                <div className="text-gray-500">
+                  {activeTimeRange === 'today' ? 'No message limit' : 'All messages in range'}
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Stats Bar */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div className="bg-white rounded-lg p-4 shadow">
@@ -257,7 +416,12 @@ const Dashboard: React.FC = () => {
 
         {/* Daily Summary Section */}
         <div className="mb-8">
-          <DailySummary />
+          {/* Only show daily summary for single-day views */}
+          {(activeTimeRange === 'today' || activeTimeRange === 'custom') && (
+            <DailySummary 
+              selectedDate={activeTimeRange === 'today' ? new Date() : customDate}
+            />
+          )}
         </div>
 
         {/* Main Content */}

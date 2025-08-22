@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { format, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
-import { messagesApi, aiApi } from '../services/api';
+import { messagesApi } from '../services/api';
 import { Message } from '../types';
 
 interface ReportData {

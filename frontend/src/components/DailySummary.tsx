@@ -13,16 +13,29 @@ interface DailySummaryData {
   createdAt: Date;
 }
 
-const DailySummary: React.FC = () => {
+interface DailySummaryProps {
+  selectedDate?: Date;
+}
+
+const DailySummary: React.FC<DailySummaryProps> = ({ 
+  selectedDate: propSelectedDate 
+}) => {
   const [summary, setSummary] = useState<DailySummaryData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(propSelectedDate || new Date());
 
   useEffect(() => {
     loadDailySummary(selectedDate);
   }, [selectedDate]);
+
+  useEffect(() => {
+    // Sync with prop changes
+    if (propSelectedDate) {
+      setSelectedDate(propSelectedDate);
+    }
+  }, [propSelectedDate]);
 
   const loadDailySummary = async (date: Date) => {
     setLoading(true);
@@ -89,11 +102,6 @@ const DailySummary: React.FC = () => {
     }
   };
 
-  const handleDateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const newDate = new Date(event.target.value);
-    setSelectedDate(newDate);
-  };
-
   const handleRegenerate = () => {
     generateDailySummary(selectedDate, true);
   };
@@ -117,25 +125,14 @@ const DailySummary: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center space-x-3">
-            {/* Date Picker */}
-            <input
-              type="date"
-              value={format(selectedDate, 'yyyy-MM-dd')}
-              onChange={handleDateChange}
-              max={format(new Date(), 'yyyy-MM-dd')}
-              className="px-3 py-1 rounded text-gray-900 text-sm"
-            />
-
-            {/* Regenerate Button */}
-            <button
-              onClick={handleRegenerate}
-              disabled={loading}
-              className="px-3 py-1 bg-blue-700 hover:bg-blue-800 rounded text-sm font-medium disabled:opacity-50"
-            >
-              {loading ? 'Generating...' : 'Regenerate'}
-            </button>
-          </div>
+          {/* Regenerate Button */}
+          <button
+            onClick={handleRegenerate}
+            disabled={loading}
+            className="px-3 py-1 bg-blue-700 hover:bg-blue-800 rounded text-sm font-medium disabled:opacity-50"
+          >
+            {loading ? 'Generating...' : 'Regenerate'}
+          </button>
         </div>
       </div>
 

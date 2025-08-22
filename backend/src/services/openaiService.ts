@@ -227,37 +227,53 @@ Only suggest tags that are clearly relevant with confidence > 0.6.`;
       });
     });
 
-    return `You are analyzing Slack messages from ${dateStr} for a product operations manager. 
+    return `You are creating an EXECUTIVE DAILY BRIEF for a product operations manager based on Slack messages from ${dateStr}.
 
-IMPORTANT INSTRUCTIONS:
-- Only summarize what is explicitly mentioned in the messages
-- Do NOT invent, assume, or extrapolate information not present in the messages
-- Be factual and specific, avoid generic statements
-- If there are no significant developments, say so honestly
-- Focus on concrete actions, decisions, and updates mentioned
+CRITICAL REQUIREMENTS:
+- Only summarize what is EXPLICITLY stated in the messages below
+- Do NOT invent, assume, or extrapolate any information
+- Focus on business impact, decisions, and concrete actions
+- Provide clear squad-by-squad breakdown for operational clarity
+- If no significant activity occurred, state this honestly
 
-MESSAGES TO ANALYZE:
+MESSAGES BY SQUAD:
 ${messagesText}
 
-Total messages: ${request.messages.length}
-Active squads: ${request.squads.join(', ')}
+EXECUTIVE BRIEF STRUCTURE REQUIRED:
 
-Create a factual summary in JSON format based ONLY on what's explicitly mentioned:
+Create a comprehensive executive brief in JSON format:
 {
-  "executiveSummary": "Brief factual overview of what actually happened based on the messages",
-  "keyDevelopments": ["Only list actual developments mentioned in messages"],
-  "blockingIssues": ["Only list actual issues or blockers mentioned"],
-  "achievements": ["Only list actual wins or completions mentioned"],
-  "actionItems": ["Only list explicit follow-ups or todos mentioned"],
-  "teamSentiment": "positive|neutral|concerning",
-  "activityMetrics": {
+  "executiveSummary": "2-3 sentence executive overview highlighting the most critical business impacts and decisions from today's activity",
+  
+  "squadBreakdown": {
+    ${request.squads.map(squad => `"${squad}": {
+      "keyActivity": "Main developments for this squad",
+      "decisions": ["Important decisions made"],
+      "blockers": ["Issues requiring leadership attention"],
+      "achievements": ["Completed deliverables or wins"],
+      "messageCount": "Number of messages from this squad"
+    }`).join(',\n    ')}
+  },
+  
+  "businessImpact": {
+    "revenue": ["Any revenue-related updates mentioned"],
+    "customer": ["Customer feedback, issues, or wins mentioned"],
+    "product": ["Product launches, features, or technical updates"],
+    "operations": ["Operational changes or improvements"]
+  },
+  
+  "leadershipActionRequired": ["Items that need executive attention or decisions"],
+  "crossSquadCollaboration": ["Inter-team work or dependencies mentioned"],
+  
+  "metrics": {
     "totalMessages": ${request.messages.length},
-    "activeSquads": ${JSON.stringify(request.squads)},
-    "topChannels": ["actual", "channel", "names"]
+    "activeSquads": ${request.squads.length},
+    "threadsWithActivity": "Count of threads with replies",
+    "urgentItems": "Count of urgent/critical items"
   }
 }
 
-Remember: Be factual, not creative. Only include what's actually in the messages.`;
+EXECUTIVE FOCUS: Structure this as a brief you'd send to a CEO - actionable, factual, and highlighting what matters for business operations.`;
   }
 
   /**

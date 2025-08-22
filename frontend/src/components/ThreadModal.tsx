@@ -89,7 +89,7 @@ const ThreadModal: React.FC<ThreadModalProps> = ({
 
   const renderFormattedText = (text: string) => {
     // Convert markdown-style links to actual links
-    return text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, linkText, url) => {
+    return text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, linkText, url) => {
       return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 underline">${linkText}</a>`;
     });
   };

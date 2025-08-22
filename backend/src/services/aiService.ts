@@ -1,5 +1,6 @@
 import { OpenAIService, SummaryRequest, SummaryResponse } from './openaiService';
 import { TaggingService, TagAnalysisResult } from './taggingService';
+import { SlackService } from './slackService';
 import { Message, CustomError } from '../types';
 import { messageStorage } from '../utils/storage';
 
@@ -97,15 +98,9 @@ export class AIService {
     try {
       let messagesToAnalyze = messages;
       
-      // If no messages provided, fetch messages for the date
+      // If no messages provided, fetch ALL messages for the date (including threads)
       if (!messagesToAnalyze) {
-        const startDate = new Date(date);
-        startDate.setHours(0, 0, 0, 0);
-        
-        const endDate = new Date(date);
-        endDate.setHours(23, 59, 59, 999);
-        
-        messagesToAnalyze = await this.getMessagesForDateRange(startDate, endDate);
+        messagesToAnalyze = await this.getMessagesWithThreadsForDate(date);
       }
 
       if (messagesToAnalyze.length === 0) {
@@ -156,6 +151,71 @@ export class AIService {
   /**
    * Get messages for a date range
    */
+  /**
+   * Get messages with threaded replies for a specific date using real Slack data
+   */
+  private async getMessagesWithThreadsForDate(date: Date): Promise<Message[]> {
+    try {
+      // Use the Slack service to get real messages (not just stored mock data)
+      const slackService = new SlackService();
+      
+      // Get all messages for the date from all channels
+      const allMessages: Message[] = [];
+      
+      try {
+        // Fetch from Slack API for the specific date
+        const startDate = new Date(date);
+        startDate.setHours(0, 0, 0, 0);
+        
+        const endDate = new Date(date);
+        endDate.setHours(23, 59, 59, 999);
+        
+        // Get messages from Slack from all channels (this will include threads)
+        const channels = await slackService.getChannels();
+        const slackMessages: Message[] = [];
+        
+        // Fetch messages from each channel for the date
+        for (const channel of channels.slice(0, 10)) { // Limit to prevent timeout
+          try {
+            const channelMessages = await slackService.getChannelMessages(
+              channel.id,
+              startDate,
+              endDate
+            );
+            slackMessages.push(...channelMessages);
+          } catch (error) {
+            console.warn(`Failed to fetch messages from channel ${channel.name}:`, error);
+          }
+        }
+        
+        allMessages.push(...slackMessages);
+        console.log(`Fetched ${slackMessages.length} messages from Slack for ${date.toDateString()}`);
+        
+      } catch (slackError) {
+        console.warn('Failed to fetch from Slack, falling back to stored data:', slackError);
+        
+        // Fallback to stored data if Slack API fails
+        const messageData = await messageStorage.read();
+        const filteredMessages = messageData.messages.filter(message => {
+          const messageDate = new Date(message.timestamp);
+          const startDate = new Date(date);
+          startDate.setHours(0, 0, 0, 0);
+          const endDate = new Date(date);
+          endDate.setHours(23, 59, 59, 999);
+          return messageDate >= startDate && messageDate <= endDate;
+        });
+        
+        allMessages.push(...filteredMessages);
+        console.log(`Using ${filteredMessages.length} stored messages for ${date.toDateString()}`);
+      }
+      
+      return allMessages;
+    } catch (error) {
+      console.error('Error fetching messages with threads for date:', error);
+      return [];
+    }
+  }
+
   private async getMessagesForDateRange(startDate: Date, endDate: Date): Promise<Message[]> {
     try {
       const messageData = await messageStorage.read();
