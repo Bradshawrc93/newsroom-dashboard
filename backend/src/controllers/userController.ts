@@ -8,15 +8,35 @@ const USERS_FILE = 'data/users.json';
 export const getUsers = async (req: Request, res: Response) => {
   try {
     // Initialize Slack service with bot token
-    const slackService = new SlackService(process.env.SLACK_BOT_TOKEN);
+    const botToken = process.env.SLACK_BOT_TOKEN;
+    console.log('Slack bot token:', botToken ? 'Present' : 'Missing');
+    console.log('Bot token starts with:', botToken ? botToken.substring(0, 10) + '...' : 'None');
+    
+    if (!botToken) {
+      throw new Error('SLACK_BOT_TOKEN environment variable is not set');
+    }
+    
+    const slackService = new SlackService(botToken);
+    
+    // Test the token first
+    console.log('Testing Slack token...');
+    try {
+      const authTest = await slackService.client.auth.test();
+      console.log('Token test successful:', authTest.team, authTest.user);
+    } catch (authError) {
+      console.error('Token test failed:', authError);
+      throw new Error('Invalid Slack bot token');
+    }
     
     // Fetch real users from Slack
+    console.log('Fetching users from Slack...');
     const slackUsers = await slackService.getUsers();
+    console.log('Slack users fetched:', slackUsers.length);
     
     // Transform Slack users to our format
     const users = (slackUsers as any[])
-      .filter(user => !user.is_bot && !user.deleted) // Filter out bots and deleted users
-      .map(user => ({
+      .filter((user: any) => !user.is_bot && !user.deleted) // Filter out bots and deleted users
+      .map((user: any) => ({
         id: user.id,
         name: user.real_name || user.name,
         email: user.profile?.email || '',
@@ -30,8 +50,9 @@ export const getUsers = async (req: Request, res: Response) => {
       data: { users },
       message: 'Users retrieved successfully from Slack'
     });
-  } catch (error) {
-    console.error('Error getting users from Slack:', error);
+      } catch (error) {
+      console.error('Error getting users from Slack:', error);
+      console.error('Error details:', error.message);
     
     // Fallback to JSON file if Slack fails
     try {

@@ -13,7 +13,7 @@ import { userStorage, channelStorage, messageStorage } from '../utils/storage';
 import { CustomError } from '../types';
 
 export class SlackService {
-  private client: WebClient;
+  public client: WebClient;
 
   constructor(token?: string) {
     this.client = new WebClient(token);
