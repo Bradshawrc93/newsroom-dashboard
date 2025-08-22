@@ -3,12 +3,15 @@ import { SlackService } from '../services/slackService';
 import { messageStorage } from '../utils/storage';
 import { ApiResponse, CustomError, Message } from '../types';
 import { getChannelIds, getChannelById } from '../config/channels';
+import { MessageFormatter, FormattedMessage } from '../utils/messageFormatter';
 
 export class MessageController {
   private slackService: SlackService;
+  private messageFormatter: MessageFormatter;
 
   constructor() {
     this.slackService = new SlackService(process.env.SLACK_BOT_TOKEN);
+    this.messageFormatter = new MessageFormatter();
   }
 
 
@@ -202,6 +205,100 @@ export class MessageController {
           offset: offset as number,
         },
         message: `Retrieved ${paginatedMessages.length} messages from Slack`,
+      };
+
+      res.status(200).json(response);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Get message details with threaded replies
+   */
+  getMessageDetails = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { messageId } = req.params;
+      
+      if (!messageId) {
+        throw new CustomError('Message ID is required', 400);
+      }
+
+      // Find the message
+      const messageData = await messageStorage.read();
+      const message = messageData.messages.find(m => m.id === messageId);
+      
+      if (!message) {
+        throw new CustomError('Message not found', 404);
+      }
+
+      // Get all users for formatting
+      const users = await this.slackService.getAllUsers();
+      this.messageFormatter.updateUsers(users);
+
+      // Format the main message
+      const formattedMessage = this.messageFormatter.formatMessage(message);
+
+      // Get threaded replies if this message has a thread
+      let threadedReplies: FormattedMessage[] = [];
+      if (message.id) {
+        try {
+          // Find messages that are replies to this message
+          const replies = messageData.messages.filter(m => 
+            m.threadId === message.id || 
+            (m.id !== message.id && m.id.startsWith(message.channelId) && m.text.includes('thread'))
+          );
+
+          // Format the replies
+          threadedReplies = this.messageFormatter.formatMessages(replies);
+          
+          // Sort by timestamp
+          threadedReplies.sort((a, b) => 
+            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+          );
+        } catch (error) {
+          console.warn('Failed to fetch threaded replies:', error);
+        }
+      }
+
+      // Infer squad/product tags
+      const squad = this.inferSquadFromChannel(message.channelName || '');
+      const tags = [squad];
+
+      // Add contextual tags based on content
+      const messageText = message.text.toLowerCase();
+      if (messageText.includes('deployment') || messageText.includes('deploy')) {
+        tags.push('deployment');
+      }
+      if (messageText.includes('bug') || messageText.includes('issue')) {
+        tags.push('bug-fix');
+      }
+      if (messageText.includes('release') || messageText.includes('launch')) {
+        tags.push('release');
+      }
+      if (this.messageFormatter.isUrgent(message.text)) {
+        tags.push('urgent');
+      }
+
+      // Extract action items
+      const actionItems = this.messageFormatter.extractActionItems(message.text);
+
+      const response: ApiResponse<{
+        message: FormattedMessage;
+        threadedReplies: FormattedMessage[];
+        tags: string[];
+        actionItems: string[];
+        importance: number;
+      }> = {
+        success: true,
+        data: {
+          message: formattedMessage,
+          threadedReplies,
+          tags: [...new Set(tags)], // Remove duplicates
+          actionItems,
+          importance: this.estimateMessageImportance(message)
+        },
+        message: 'Message details retrieved successfully'
       };
 
       res.status(200).json(response);

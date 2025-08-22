@@ -107,6 +107,10 @@ export const messagesApi = {
   // Get messages with filters
   getMessages: (params: any) => 
     apiClient.get<ApiResponse<any>>(`/messages?${new URLSearchParams(params)}`),
+  
+  // Get message details with threaded replies
+  getMessageDetails: (messageId: string) =>
+    apiClient.get<ApiResponse<any>>(`/messages/${encodeURIComponent(messageId)}/details`),
 };
 
 // AI API

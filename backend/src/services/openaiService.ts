@@ -218,37 +218,46 @@ Only suggest tags that are clearly relevant with confidence > 0.6.`;
     const messagesBySquad = this.groupMessagesBySquad(request.messages);
     const dateStr = request.dateRange.start.toDateString();
     
+    // Create a more structured and factual summary
     let messagesText = '';
     Object.entries(messagesBySquad).forEach(([squad, messages]) => {
       messagesText += `\n## ${squad.toUpperCase()} SQUAD (${messages.length} messages)\n`;
-      messages.slice(0, 10).forEach(msg => { // Limit to prevent token overflow
-        messagesText += `- [${msg.channelName}] ${msg.userName}: ${msg.text.slice(0, 200)}...\n`;
+      messages.slice(0, 8).forEach(msg => { // Limit to prevent token overflow
+        messagesText += `- [${msg.channelName}] ${msg.userName}: ${msg.text.slice(0, 150)}\n`;
       });
     });
 
-    return `Analyze these Slack messages from ${dateStr} and create an executive summary:
+    return `You are analyzing Slack messages from ${dateStr} for a product operations manager. 
 
+IMPORTANT INSTRUCTIONS:
+- Only summarize what is explicitly mentioned in the messages
+- Do NOT invent, assume, or extrapolate information not present in the messages
+- Be factual and specific, avoid generic statements
+- If there are no significant developments, say so honestly
+- Focus on concrete actions, decisions, and updates mentioned
+
+MESSAGES TO ANALYZE:
 ${messagesText}
 
 Total messages: ${request.messages.length}
 Active squads: ${request.squads.join(', ')}
 
-Create a comprehensive summary in JSON format:
+Create a factual summary in JSON format based ONLY on what's explicitly mentioned:
 {
-  "executiveSummary": "2-3 sentence overview of the day's key activities",
-  "keyDevelopments": ["Important developments", "Major announcements"],
-  "blockingIssues": ["Issues that need attention", "Blockers mentioned"],
-  "achievements": ["Wins and completions", "Milestones reached"],
-  "actionItems": ["Follow-ups needed", "Decisions pending"],
+  "executiveSummary": "Brief factual overview of what actually happened based on the messages",
+  "keyDevelopments": ["Only list actual developments mentioned in messages"],
+  "blockingIssues": ["Only list actual issues or blockers mentioned"],
+  "achievements": ["Only list actual wins or completions mentioned"],
+  "actionItems": ["Only list explicit follow-ups or todos mentioned"],
   "teamSentiment": "positive|neutral|concerning",
   "activityMetrics": {
     "totalMessages": ${request.messages.length},
-    "activeSquads": ["list", "of", "active", "squads"],
-    "topChannels": ["most", "active", "channels"]
+    "activeSquads": ${JSON.stringify(request.squads)},
+    "topChannels": ["actual", "channel", "names"]
   }
 }
 
-Focus on actionable insights for a product operations manager.`;
+Remember: Be factual, not creative. Only include what's actually in the messages.`;
   }
 
   /**

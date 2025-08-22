@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
 import { Message } from '../types';
-import { aiApi, learningApi } from '../services/api';
+import { messagesApi } from '../services/api';
 
 interface ThreadModalProps {
   isOpen: boolean;
@@ -10,11 +10,17 @@ interface ThreadModalProps {
   onDismiss?: (messageId: string) => void;
 }
 
-interface AIAnalysis {
+interface FormattedMessage extends Message {
+  formattedText: string;
+  slackPermalink?: string;
+}
+
+interface MessageDetails {
+  message: FormattedMessage;
+  threadedReplies: FormattedMessage[];
   tags: string[];
+  actionItems: string[];
   importance: number;
-  urgencyLevel: 'low' | 'medium' | 'high' | 'critical';
-  confidence: number;
 }
 
 const ThreadModal: React.FC<ThreadModalProps> = ({
@@ -23,19 +29,14 @@ const ThreadModal: React.FC<ThreadModalProps> = ({
   message,
   onDismiss
 }) => {
-  const [aiAnalysis, setAiAnalysis] = useState<AIAnalysis | null>(null);
-  const [loadingAnalysis, setLoadingAnalysis] = useState(false);
-  const [analysisError, setAnalysisError] = useState<string | null>(null);
-  const [customTags, setCustomTags] = useState<string[]>([]);
-  const [newTag, setNewTag] = useState('');
-  const [customImportance, setCustomImportance] = useState<number | null>(null);
-  const [originalTags, setOriginalTags] = useState<string[]>([]);
-  const [hasChanges, setHasChanges] = useState(false);
+  const [messageDetails, setMessageDetails] = useState<MessageDetails | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isOpen && message) {
-      loadAIAnalysis();
+      loadMessageDetails();
     }
   }, [isOpen, message]);
 
@@ -57,34 +58,26 @@ const ThreadModal: React.FC<ThreadModalProps> = ({
     };
   }, [isOpen, onClose]);
 
-  const loadAIAnalysis = async () => {
-    setLoadingAnalysis(true);
-    setAnalysisError(null);
+  const loadMessageDetails = async () => {
+    setLoading(true);
+    setError(null);
 
     try {
-      console.log('Loading AI analysis for message:', message.id);
-      const response = await aiApi.analyzeMessage(message.id);
+      console.log('Loading message details for:', message.id);
+      const response = await messagesApi.getMessageDetails(message.id);
       
       if (response.success) {
-        const analysis = response.data;
-        const tags = analysis.tags || [];
-        setAiAnalysis({
-          tags,
-          importance: analysis.importance || 0,
-          urgencyLevel: analysis.urgencyLevel || 'low',
-          confidence: analysis.confidence || 0
-        });
-        setOriginalTags([...tags]); // Store original tags for learning
-        console.log('AI analysis loaded:', analysis);
+        setMessageDetails(response.data);
+        console.log('Message details loaded:', response.data);
       } else {
-        throw new Error(response.error || 'Failed to analyze message');
+        throw new Error(response.error || 'Failed to load message details');
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to load AI analysis';
-      setAnalysisError(errorMessage);
-      console.error('AI analysis error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load message details';
+      setError(errorMessage);
+      console.error('Message details error:', error);
     } finally {
-      setLoadingAnalysis(false);
+      setLoading(false);
     }
   };
 
@@ -94,87 +87,12 @@ const ThreadModal: React.FC<ThreadModalProps> = ({
     }
   };
 
-  const addCustomTag = () => {
-    if (newTag.trim() && !customTags.includes(newTag.trim())) {
-      setCustomTags([...customTags, newTag.trim()]);
-      setNewTag('');
-      setHasChanges(true);
-    }
+  const renderFormattedText = (text: string) => {
+    // Convert markdown-style links to actual links
+    return text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, linkText, url) => {
+      return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 underline">${linkText}</a>`;
+    });
   };
-
-  const removeCustomTag = (tagToRemove: string) => {
-    setCustomTags(customTags.filter(tag => tag !== tagToRemove));
-    setHasChanges(true);
-  };
-
-  const recordTagFeedback = async (feedback: 'positive' | 'negative') => {
-    if (!aiAnalysis) return;
-
-    try {
-      await learningApi.recordTagFeedback({
-        messageId: message.id,
-        tags: aiAnalysis.tags,
-        feedback
-      });
-      console.log('Tag feedback recorded:', feedback);
-    } catch (error) {
-      console.error('Failed to record tag feedback:', error);
-    }
-  };
-
-  const saveChanges = async () => {
-    if (!hasChanges || !aiAnalysis) return;
-
-    try {
-      const finalTags = [...aiAnalysis.tags, ...customTags];
-      
-      // Record tag correction if there are changes
-      if (customTags.length > 0 || customImportance !== null) {
-        await learningApi.recordTagCorrection({
-          messageId: message.id,
-          originalTags: originalTags,
-          correctedTags: finalTags
-        });
-        console.log('Tag correction recorded');
-      }
-
-      // In a real app, you'd also save the changes to the message
-      setHasChanges(false);
-      onClose();
-    } catch (error) {
-      console.error('Failed to save changes:', error);
-    }
-  };
-
-  const getImportanceColor = (score: number) => {
-    if (score >= 0.8) return 'text-red-600 bg-red-100';
-    if (score >= 0.6) return 'text-orange-600 bg-orange-100';
-    if (score >= 0.4) return 'text-yellow-600 bg-yellow-100';
-    return 'text-green-600 bg-green-100';
-  };
-
-  const getImportanceLabel = (score: number) => {
-    if (score >= 0.8) return 'Critical';
-    if (score >= 0.6) return 'High';
-    if (score >= 0.4) return 'Medium';
-    return 'Low';
-  };
-
-  const getUrgencyColor = (level: string) => {
-    switch (level) {
-      case 'critical': return 'text-red-600 bg-red-100';
-      case 'high': return 'text-orange-600 bg-orange-100';
-      case 'medium': return 'text-yellow-600 bg-yellow-100';
-      default: return 'text-green-600 bg-green-100';
-    }
-  };
-
-  const allTags = [
-    ...(aiAnalysis?.tags || []),
-    ...customTags
-  ].filter((tag, index, array) => array.indexOf(tag) === index);
-
-  const displayImportance = customImportance !== null ? customImportance : (aiAnalysis?.importance || 0);
 
   if (!isOpen) return null;
 
@@ -208,192 +126,141 @@ const ThreadModal: React.FC<ThreadModalProps> = ({
         <div className="flex-1 overflow-y-auto">
           <div className="p-6 space-y-6">
             
-            {/* Message Content */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center space-x-2">
-                  <span className="font-medium text-gray-900">{message.userName}</span>
-                  <span className="text-gray-500">•</span>
-                  <span className="text-sm text-gray-500">
-                    {format(new Date(message.timestamp), 'MMM dd, yyyy HH:mm')}
-                  </span>
-                </div>
-                {message.reactions && message.reactions.length > 0 && (
-                  <div className="flex items-center space-x-1 text-sm text-gray-500">
-                    <span>👍</span>
-                    <span>{message.reactions.reduce((sum, r) => sum + r.count, 0)} reactions</span>
-                  </div>
-                )}
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <span className="ml-3 text-gray-600">Loading message details...</span>
               </div>
-              <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">{message.text}</p>
-            </div>
-
-            {/* AI Analysis Section */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">AI Analysis</h3>
+            ) : error ? (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <p className="text-red-700">{error}</p>
                 <button
-                  onClick={loadAIAnalysis}
-                  disabled={loadingAnalysis}
-                  className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                  onClick={loadMessageDetails}
+                  className="mt-2 text-sm bg-red-100 text-red-800 px-3 py-1 rounded hover:bg-red-200"
                 >
-                  {loadingAnalysis ? 'Analyzing...' : 'Refresh Analysis'}
+                  Try Again
                 </button>
               </div>
-
-              {loadingAnalysis ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  <span className="ml-3 text-gray-600">Analyzing message with AI...</span>
-                </div>
-              ) : analysisError ? (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <p className="text-red-700">{analysisError}</p>
-                  <button
-                    onClick={loadAIAnalysis}
-                    className="mt-2 text-sm bg-red-100 text-red-800 px-3 py-1 rounded hover:bg-red-200"
-                  >
-                    Try Again
-                  </button>
-                </div>
-              ) : aiAnalysis ? (
-                <div className="space-y-4">
-                  {/* AI Tag Feedback */}
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700">
-                      How accurate are these AI-generated tags?
-                    </span>
+            ) : messageDetails ? (
+              <>
+                {/* Main Message */}
+                <div className="bg-gray-50 rounded-lg p-4 border-l-4 border-blue-500">
+                  <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center space-x-2">
-                      <button
-                        onClick={() => recordTagFeedback('positive')}
-                        className="px-3 py-1 text-sm bg-green-100 text-green-800 rounded hover:bg-green-200 transition-colors"
-                      >
-                        👍 Good
-                      </button>
-                      <button
-                        onClick={() => recordTagFeedback('negative')}
-                        className="px-3 py-1 text-sm bg-red-100 text-red-800 rounded hover:bg-red-200 transition-colors"
-                      >
-                        👎 Poor
-                      </button>
+                      <span className="font-medium text-gray-900">{messageDetails.message.userName}</span>
+                      <span className="text-gray-500">•</span>
+                      <span className="text-sm text-gray-500">
+                        {format(new Date(messageDetails.message.timestamp), 'MMM dd, yyyy HH:mm')}
+                      </span>
+                      {messageDetails.message.slackPermalink && (
+                        <>
+                          <span className="text-gray-500">•</span>
+                          <a
+                            href={messageDetails.message.slackPermalink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-blue-600 hover:text-blue-800 underline"
+                          >
+                            View in Slack
+                          </a>
+                        </>
+                      )}
                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Importance Score */}
-                  <div className="bg-white border border-gray-200 rounded-lg p-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Importance Score
-                    </label>
-                    <div className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getImportanceColor(displayImportance)}`}>
-                      {getImportanceLabel(displayImportance)} ({Math.round(displayImportance * 100)}%)
-                    </div>
-                    <div className="mt-2">
-                      <input
-                        type="range"
-                        min="0"
-                        max="1"
-                        step="0.1"
-                        value={displayImportance}
-                        onChange={(e) => {
-                          setCustomImportance(parseFloat(e.target.value));
-                          setHasChanges(true);
-                        }}
-                        className="w-full"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Urgency Level */}
-                  <div className="bg-white border border-gray-200 rounded-lg p-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Urgency Level
-                    </label>
-                    <div className={`inline-block px-3 py-1 rounded-full text-sm font-medium capitalize ${getUrgencyColor(aiAnalysis.urgencyLevel)}`}>
-                      {aiAnalysis.urgencyLevel}
-                    </div>
-                  </div>
-
-                  {/* Confidence */}
-                  <div className="bg-white border border-gray-200 rounded-lg p-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      AI Confidence
-                    </label>
-                    <div className="text-lg font-semibold text-blue-600">
-                      {Math.round(aiAnalysis.confidence * 100)}%
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-                      <div 
-                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${aiAnalysis.confidence * 100}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                </div>
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <p>AI analysis not available</p>
-                  <button
-                    onClick={loadAIAnalysis}
-                    className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    Analyze Message
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Tags Section */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">Tags</h3>
-              
-              {/* Current Tags */}
-              <div className="flex flex-wrap gap-2">
-                {allTags.map((tag, index) => (
-                  <span
-                    key={index}
-                    className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                      customTags.includes(tag)
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-blue-100 text-blue-800'
-                    }`}
-                  >
-                    {tag}
-                    {customTags.includes(tag) && (
-                      <button
-                        onClick={() => removeCustomTag(tag)}
-                        className="ml-2 text-green-600 hover:text-green-800"
-                      >
-                        ×
-                      </button>
+                    {messageDetails.message.reactions && messageDetails.message.reactions.length > 0 && (
+                      <div className="flex items-center space-x-2">
+                        {messageDetails.message.reactions.map((reaction, index) => (
+                          <span key={index} className="text-sm bg-gray-200 px-2 py-1 rounded-full">
+                            {reaction.name} {reaction.count}
+                          </span>
+                        ))}
+                      </div>
                     )}
-                  </span>
-                ))}
-                {allTags.length === 0 && (
-                  <span className="text-gray-500 italic">No tags assigned</span>
-                )}
-              </div>
+                  </div>
+                  <div 
+                    className="text-gray-800 leading-relaxed whitespace-pre-wrap"
+                    dangerouslySetInnerHTML={{ 
+                      __html: renderFormattedText(messageDetails.message.formattedText || messageDetails.message.text) 
+                    }}
+                  />
+                </div>
 
-              {/* Add Custom Tag */}
-              <div className="flex space-x-2">
-                <input
-                  type="text"
-                  value={newTag}
-                  onChange={(e) => setNewTag(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && addCustomTag()}
-                  placeholder="Add custom tag..."
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <button
-                  onClick={addCustomTag}
-                  disabled={!newTag.trim()}
-                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
-                >
-                  Add Tag
-                </button>
+                {/* Tags Section */}
+                <div className="space-y-3">
+                  <h3 className="text-lg font-semibold text-gray-900">Tags & Classification</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {messageDetails.tags.map((tag, index) => (
+                      <span
+                        key={index}
+                        className="inline-block px-3 py-1 text-sm font-medium bg-blue-100 text-blue-800 rounded-full"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    Importance Score: <span className="font-medium">{Math.round(messageDetails.importance * 100)}%</span>
+                  </div>
+                </div>
+
+                {/* Action Items */}
+                {messageDetails.actionItems.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="text-lg font-semibold text-gray-900">Action Items</h3>
+                    <ul className="space-y-2">
+                      {messageDetails.actionItems.map((item, index) => (
+                        <li key={index} className="flex items-start">
+                          <span className="text-orange-600 mr-2 mt-1">→</span>
+                          <span className="text-gray-700">{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Threaded Replies */}
+                {messageDetails.threadedReplies.length > 0 && (
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      Thread Replies ({messageDetails.threadedReplies.length})
+                    </h3>
+                    <div className="space-y-3 ml-4 border-l-2 border-gray-200 pl-4">
+                      {messageDetails.threadedReplies.map((reply, index) => (
+                        <div key={index} className="bg-white rounded-lg p-3 shadow-sm">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center space-x-2">
+                              <span className="text-sm font-medium text-gray-900">{reply.userName}</span>
+                              <span className="text-xs text-gray-500">
+                                {format(new Date(reply.timestamp), 'MMM dd, HH:mm')}
+                              </span>
+                            </div>
+                            {reply.slackPermalink && (
+                              <a
+                                href={reply.slackPermalink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-blue-600 hover:text-blue-800 underline"
+                              >
+                                View
+                              </a>
+                            )}
+                          </div>
+                          <div 
+                            className="text-gray-700 text-sm leading-relaxed"
+                            dangerouslySetInnerHTML={{ 
+                              __html: renderFormattedText(reply.formattedText || reply.text) 
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <p>No message details available</p>
               </div>
-            </div>
+            )}
           </div>
         </div>
 
@@ -416,20 +283,9 @@ const ThreadModal: React.FC<ThreadModalProps> = ({
           <div className="flex items-center space-x-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded-md transition-colors"
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
             >
               Close
-            </button>
-            <button
-              onClick={saveChanges}
-              disabled={!hasChanges}
-              className={`px-4 py-2 rounded-md transition-colors ${
-                hasChanges 
-                  ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
-            >
-              {hasChanges ? 'Save Changes' : 'No Changes'}
             </button>
           </div>
         </div>
