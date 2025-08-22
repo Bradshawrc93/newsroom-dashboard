@@ -28,10 +28,34 @@ export const getUsers = async (req: Request, res: Response) => {
       throw new Error('Invalid Slack bot token');
     }
     
+    // Get the list of monitored channels
+    const monitoredChannelNames = [
+      'thoughtful-access-voice-ai',
+      'nox-health',
+      'orthofi', 
+      'thoughtful-epic',
+      'portal-aggregator',
+      'hitl-squad',
+      'biowound',
+      'legent',
+      'thoughthub',
+      'pathfinder-toolforge-alpha',
+      'reporting-sdk',
+      'dd-worfklow-engine-partnership',
+      'customer-facing',
+      'data-team',
+      'dev-team'
+    ];
+    
     // Fetch real users from Slack
     console.log('Fetching users from Slack...');
-    const slackUsers = await slackService.getUsers();
-    console.log('Slack users fetched:', slackUsers.length);
+    const allSlackUsers = await slackService.getUsers();
+    console.log('Total Slack users fetched:', allSlackUsers.length);
+    
+    // For now, filter to a reasonable subset of users (first 20 active users)
+    // In a real implementation, you'd fetch users from specific channels
+    const slackUsers = allSlackUsers.slice(0, 20);
+    console.log('Filtered users to show:', slackUsers.length);
     
     // Transform Slack users to our format
     const users = (slackUsers as any[])

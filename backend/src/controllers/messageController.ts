@@ -131,16 +131,44 @@ export class MessageController {
           const channelMessages = await this.slackService.getChannelMessages(channelId as string, start, end);
           messages = channelMessages;
         } else {
-          // Fetch from all connected channels
-          const channels = await this.slackService.getChannels();
-          const connectedChannels = channels.filter(c => c.isConnected);
+          // Get the list of monitored channels that actually exist in the Slack workspace
+          const monitoredChannelNames = [
+            'thoughtful-access-voice-ai',
+            'nox-health',
+            'orthofi', 
+            'thoughtful-epic',
+            'portal-aggregator',
+            'hitl-squad',
+            'biowound',
+            'legent-health',
+            'thoughthub',
+            'pathfinder-toolforge-alpha',
+            'reporting-sdk',
+            'dd-worfklow-engine-partnership',
+            'customer-support',
+            'customer-delivery',
+            'prod-dev-experience',
+            'devex-support',
+            'sales-dev',
+            'services-dev',
+            'tools-dev',
+            'libraries-dev'
+          ];
           
-          for (const channel of connectedChannels.slice(0, 5)) { // Limit to first 5 channels to avoid rate limits
+          // Fetch from monitored channels
+          const channels = await this.slackService.getChannels();
+          const monitoredChannels = channels.filter(c => monitoredChannelNames.includes(c.name));
+          
+          console.log(`Fetching messages from ${monitoredChannels.length} monitored channels...`);
+          
+          for (const channel of monitoredChannels.slice(0, 3)) { // Limit to first 3 channels to avoid rate limits
             const start = startDate ? new Date(startDate as string) : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
             const end = endDate ? new Date(endDate as string) : new Date();
             
             try {
+              console.log(`Fetching messages from channel: ${channel.name}`);
               const channelMessages = await this.slackService.getChannelMessages(channel.id, start, end);
+              console.log(`Got ${channelMessages.length} messages from ${channel.name}`);
               messages.push(...channelMessages);
             } catch (channelError) {
               console.error(`Error fetching messages from channel ${channel.name}:`, channelError);

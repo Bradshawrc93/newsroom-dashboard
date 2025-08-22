@@ -25,19 +25,58 @@ export class ChannelController {
    */
   getAllChannels = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      // Fetch real channels from Slack
-      const slackChannels = await this.slackService.getChannels();
+      // Get the list of monitored channels that actually exist in the Slack workspace
+      const monitoredChannelNames = [
+        'thoughtful-access-voice-ai',
+        'nox-health',
+        'orthofi', 
+        'thoughtful-epic',
+        'portal-aggregator',
+        'hitl-squad',
+        'biowound',
+        'legent-health',
+        'thoughthub',
+        'pathfinder-toolforge-alpha',
+        'reporting-sdk',
+        'dd-worfklow-engine-partnership',
+        'customer-support',
+        'customer-delivery',
+        'prod-dev-experience',
+        'devex-support',
+        'sales-dev',
+        'services-dev',
+        'tools-dev',
+        'libraries-dev'
+      ];
       
-      // Transform Slack channels to our format
-      const channels = slackChannels.map(channel => ({
-        id: channel.id,
-        name: channel.name,
-        squad: this.slackService.inferSquadFromChannelName(channel.name),
-        isPrivate: channel.isPrivate,
-        memberCount: channel.memberCount,
-        isConnected: true, // All fetched channels are connected
-        createdAt: new Date()
-      }));
+      // Fetch real channels from Slack
+      console.log('About to fetch channels from Slack...');
+      const slackChannels = await this.slackService.getChannels();
+      console.log(`Total Slack channels fetched: ${slackChannels.length}`);
+      if (slackChannels.length > 0) {
+        console.log(`First 5 channel names:`, slackChannels.slice(0, 5).map(c => c.name));
+      } else {
+        console.log('No channels returned from Slack service');
+      }
+      
+      // Filter to only monitored channels and transform to our format
+      const channels = slackChannels
+        .filter(channel => {
+          const isMonitored = monitoredChannelNames.includes(channel.name);
+          if (isMonitored) {
+            console.log(`Found monitored channel: ${channel.name}`);
+          }
+          return isMonitored;
+        })
+        .map(channel => ({
+          id: channel.id,
+          name: channel.name,
+          squad: this.slackService.inferSquadFromChannelName(channel.name),
+          isPrivate: channel.isPrivate,
+          memberCount: channel.memberCount,
+          isConnected: true, // All fetched channels are connected
+          createdAt: new Date()
+        }));
       
       const response: ApiResponse<{
         channels: Channel[];
