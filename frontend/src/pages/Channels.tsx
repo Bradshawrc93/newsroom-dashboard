@@ -11,7 +11,9 @@ import {
   EyeIcon,
   EyeSlashIcon,
   CheckCircleIcon,
-  XCircleIcon
+  XCircleIcon,
+  PencilSquareIcon,
+  TrashIcon
 } from '@heroicons/react/24/outline'
 import { channelsApi, usersApi, tagsApi } from '@/services/api'
 import { format } from 'date-fns'
@@ -68,6 +70,8 @@ const Channels: React.FC = () => {
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null)
   const [showDetail, setShowDetail] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editingChannel, setEditingChannel] = useState<Channel | null>(null)
 
   useEffect(() => {
     loadData()
@@ -245,6 +249,35 @@ const Channels: React.FC = () => {
 
   // Get unique squads from channels
   const availableSquads = Array.from(new Set(channels.map(c => c.squad).filter(Boolean)))
+
+  const handleEditChannel = (channel: Channel) => {
+    setEditingChannel(channel)
+    setShowEditModal(true)
+  }
+
+  const handleDeleteChannel = async (channelId: string) => {
+    if (window.confirm('Are you sure you want to delete this channel?')) {
+      try {
+        await channelsApi.deleteChannel(channelId)
+        await loadData()
+      } catch (err) {
+        console.error('Failed to delete channel:', err)
+        alert('Failed to delete channel. Please try again.')
+      }
+    }
+  }
+
+  const handleUpdateChannel = async (channelId: string, channelData: { name: string; description?: string }) => {
+    try {
+      await channelsApi.updateChannel(channelId, channelData)
+      setShowEditModal(false)
+      setEditingChannel(null)
+      await loadData()
+    } catch (err) {
+      console.error('Failed to update channel:', err)
+      alert('Failed to update channel. Please try again.')
+    }
+  }
 
   if (loading && channels.length === 0) {
     return (
@@ -511,6 +544,18 @@ const Channels: React.FC = () => {
                     )}
                     
                     <button
+                      onClick={() => handleEditChannel(channel)}
+                      className="p-1 text-gray-400 hover:text-gray-600"
+                    >
+                      <PencilSquareIcon className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteChannel(channel.id)}
+                      className="p-1 text-gray-400 hover:text-red-600"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
+                    <button
                       onClick={() => {
                         setSelectedChannel(channel)
                         setShowDetail(true)
@@ -651,6 +696,63 @@ const Channels: React.FC = () => {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Channel Modal */}
+      {showEditModal && editingChannel && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Edit Channel</h3>
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                handleUpdateChannel(editingChannel.id, {
+                  name: formData.get('name') as string,
+                  description: formData.get('description') as string
+                });
+              }}>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Channel Name</label>
+                  <input
+                    type="text"
+                    name="name"
+                    defaultValue={editingChannel.name}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                  <textarea
+                    name="description"
+                    defaultValue={editingChannel.description}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditModal(false);
+                      setEditingChannel(null);
+                    }}
+                    className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  >
+                    Update Channel
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>

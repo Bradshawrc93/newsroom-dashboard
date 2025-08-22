@@ -29,6 +29,9 @@ const Users: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSquad, setSelectedSquad] = useState('');
   const [squads, setSquads] = useState<string[]>([]);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
 
   useEffect(() => {
     loadUsers();
@@ -95,6 +98,46 @@ const Users: React.FC = () => {
     if (name.includes('epic')) return 'bg-orange-100 text-orange-800';
     if (name.includes('deep')) return 'bg-pink-100 text-pink-800';
     return 'bg-gray-100 text-gray-800';
+  };
+
+  const handleEditUser = (user: User) => {
+    setEditingUser(user);
+    setShowEditModal(true);
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    if (window.confirm('Are you sure you want to delete this user?')) {
+      try {
+        await usersApi.deleteUser(userId);
+        await loadUsers(); // Reload users after deletion
+      } catch (err) {
+        console.error('Failed to delete user:', err);
+        alert('Failed to delete user. Please try again.');
+      }
+    }
+  };
+
+  const handleCreateUser = async (userData: { name: string; email: string; squad: string }) => {
+    try {
+      await usersApi.createUser(userData);
+      setShowCreateModal(false);
+      await loadUsers(); // Reload users after creation
+    } catch (err) {
+      console.error('Failed to create user:', err);
+      alert('Failed to create user. Please try again.');
+    }
+  };
+
+  const handleUpdateUser = async (userId: string, userData: { name: string; email: string; squad: string }) => {
+    try {
+      await usersApi.updateUser(userId, userData);
+      setShowEditModal(false);
+      setEditingUser(null);
+      await loadUsers(); // Reload users after update
+    } catch (err) {
+      console.error('Failed to update user:', err);
+      alert('Failed to update user. Please try again.');
+    }
   };
 
   if (loading) {
@@ -227,7 +270,10 @@ const Users: React.FC = () => {
             <h3 className="text-lg font-medium text-gray-900">
               Team Members ({filteredUsers.length})
             </h3>
-            <button className="inline-flex items-center px-3 py-1 text-sm text-blue-600 hover:text-blue-700 border border-blue-200 rounded-md">
+            <button 
+              onClick={() => setShowCreateModal(true)}
+              className="inline-flex items-center px-3 py-1 text-sm text-blue-600 hover:text-blue-700 border border-blue-200 rounded-md"
+            >
               <PlusIcon className="h-4 w-4 mr-1" />
               Add User
             </button>
@@ -275,10 +321,16 @@ const Users: React.FC = () => {
                   </div>
                   
                   <div className="flex items-center space-x-2">
-                    <button className="p-1 text-gray-400 hover:text-gray-600">
+                    <button 
+                      onClick={() => handleEditUser(user)}
+                      className="p-1 text-gray-400 hover:text-gray-600"
+                    >
                       <PencilSquareIcon className="h-4 w-4" />
                     </button>
-                    <button className="p-1 text-gray-400 hover:text-red-600">
+                    <button 
+                      onClick={() => handleDeleteUser(user.id)}
+                      className="p-1 text-gray-400 hover:text-red-600"
+                    >
                       <TrashIcon className="h-4 w-4" />
                     </button>
                   </div>
@@ -301,6 +353,145 @@ const Users: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Create User Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Create New User</h3>
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                handleCreateUser({
+                  name: formData.get('name') as string,
+                  email: formData.get('email') as string,
+                  squad: formData.get('squad') as string
+                });
+              }}>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                  <input
+                    type="text"
+                    name="name"
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                  <input
+                    type="email"
+                    name="email"
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Squad</label>
+                  <select
+                    name="squad"
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select Squad</option>
+                    {squads.map(squad => (
+                      <option key={squad} value={squad}>{squad}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateModal(false)}
+                    className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  >
+                    Create User
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit User Modal */}
+      {showEditModal && editingUser && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Edit User</h3>
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                handleUpdateUser(editingUser.id, {
+                  name: formData.get('name') as string,
+                  email: formData.get('email') as string,
+                  squad: formData.get('squad') as string
+                });
+              }}>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                  <input
+                    type="text"
+                    name="name"
+                    defaultValue={editingUser.name}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                  <input
+                    type="email"
+                    name="email"
+                    defaultValue={editingUser.email}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Squad</label>
+                  <select
+                    name="squad"
+                    defaultValue={editingUser.squad}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {squads.map(squad => (
+                      <option key={squad} value={squad}>{squad}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditModal(false);
+                      setEditingUser(null);
+                    }}
+                    className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  >
+                    Update User
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

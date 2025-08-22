@@ -10,6 +10,7 @@ import {
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline'
 import { format } from 'date-fns'
+import { messagesApi, usersApi, tagsApi, channelsApi } from '../services/api'
 
 interface DashboardStats {
   totalMessages: number;
@@ -47,55 +48,49 @@ const Dashboard: React.FC = () => {
     setError(null);
     
     try {
-      console.log('Loading mock dashboard data...');
+      console.log('Loading real dashboard data...');
       
-      // Mock data for now to avoid API issues
-      const mockStats = {
-        totalMessages: 156,
-        activeUsers: 23,
-        tagsCreated: 45,
-        aiTokensUsed: 47892,
-        recentActivity: [
-          {
-            id: 'activity_1',
-            userId: 'mike-johnson',
-            text: 'Just deployed the new authentication system to staging.',
-            channelId: 'core-engineering',
-            timestamp: new Date().toISOString()
-          },
-          {
-            id: 'activity_2', 
-            userId: 'alice-smith',
-            text: 'User feedback from beta testing shows 87% satisfaction.',
-            channelId: 'product-feedback',
-            timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString()
-          }
-        ],
-        dailySummary: "Today's activity shows strong engagement across development and product teams. Key highlights include successful deployment to staging and positive user feedback.",
-        topTags: [
-          { name: 'deployment', count: 12 },
-          { name: 'feedback', count: 8 },
-          { name: 'testing', count: 6 }
-        ],
-        channelStats: [
-          {
-            id: 'core-engineering',
-            name: 'core-engineering', 
-            messageCount: 45,
-            lastActivity: 'Aug 22',
-            isConnected: true
-          },
-          {
-            id: 'product-feedback',
-            name: 'product-feedback',
-            messageCount: 32,
-            lastActivity: 'Aug 22', 
-            isConnected: true
-          }
-        ]
+      // Load real data from APIs
+      const [messagesRes, usersRes, tagsRes, channelsRes] = await Promise.all([
+        messagesApi.getMessages(),
+        usersApi.getUsers(),
+        tagsApi.getTags(),
+        channelsApi.getChannels()
+      ]);
+
+      const messages = (messagesRes as any)?.data?.messages || [];
+      const users = (usersRes as any)?.data?.users || [];
+      const tags = (tagsRes as any)?.data?.tags || [];
+      const channels = (channelsRes as any)?.data?.channels || [];
+
+      // Calculate real statistics
+      const realStats = {
+        totalMessages: messages.length,
+        activeUsers: users.length,
+        tagsCreated: tags.length,
+        aiTokensUsed: 0, // Will be updated when OpenAI integration is complete
+        recentActivity: messages.slice(0, 5).map((msg: any) => ({
+          id: msg.id,
+          userId: msg.userId,
+          text: msg.text,
+          channelId: msg.channelId,
+          timestamp: msg.timestamp
+        })),
+        dailySummary: generateDailySummary(messages, channels),
+        topTags: tags.slice(0, 5).map((tag: any) => ({
+          name: tag.name,
+          count: tag.usageCount || 0
+        })),
+        channelStats: channels.slice(0, 5).map((channel: any) => ({
+          id: channel.id,
+          name: channel.name,
+          messageCount: messages.filter((msg: any) => msg.channelId === channel.id).length,
+          lastActivity: new Date(channel.updatedAt || channel.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          isConnected: channel.isConnected || false
+        }))
       };
 
-      setStats(mockStats);
+      setStats(realStats);
 
     } catch (err) {
       console.error('Failed to load dashboard data:', err);
@@ -132,11 +127,8 @@ const Dashboard: React.FC = () => {
   };
 
   const getUserName = (userId: string) => {
-    const userMap: { [key: string]: string } = {
-      'mike-johnson': 'Mike Johnson',
-      'alice-smith': 'Alice Smith'
-    };
-    return userMap[userId] || userId;
+    // This will be updated to use real user data when we load it
+    return userId;
   };
 
   if (loading) {

@@ -1,4 +1,4 @@
-import { getAuthHeaders, isTokenExpired, useAuthStore } from '../store/authStore';
+
 import { ApiResponse, PaginatedResponse } from '../types';
 
 // API base URL
@@ -24,23 +24,11 @@ class ApiClient {
   ): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
     
-    // Get auth headers
-    const authHeaders = getAuthHeaders();
-    
-    // Check if token is expired and refresh if needed
-    const { accessToken } = useAuthStore.getState();
-    if (accessToken && isTokenExpired(accessToken)) {
-      try {
-        await (useAuthStore.getState() as any).refreshToken();
-      } catch (error) {
-        console.warn('Token refresh failed, continuing without auth:', error);
-      }
-    }
+
 
     const config: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
-        ...authHeaders,
         ...options.headers,
       },
       ...options,
@@ -51,11 +39,7 @@ class ApiClient {
       const data = await response.json();
 
       if (!response.ok) {
-        // Handle authentication errors
-        if (response.status === 401) {
-          console.warn('Authentication required, but continuing without auth');
-          // Don't logout for now, just continue without auth
-        }
+
 
         throw new ApiError(
           data.error || data.message || 'Request failed',

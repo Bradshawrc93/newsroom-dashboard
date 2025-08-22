@@ -46,7 +46,6 @@ app.get('/health', (req, res) => {
 });
 
 // Import routes
-import authRoutes from './routes/auth';
 import squadRoutes from './routes/squads';
 import messageRoutes from './routes/messages';
 import channelRoutes from './routes/channels';
@@ -55,7 +54,6 @@ import tagRoutes from './routes/tags';
 import summaryRoutes from './routes/summaries';
 
 // API routes
-app.use('/api/auth', authRoutes);
 app.use('/api/squads', squadRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/channels', channelRoutes);

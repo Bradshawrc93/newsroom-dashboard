@@ -39,6 +39,9 @@ const SquadManager: React.FC = () => {
   const [channels, setChannels] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [tags, setTags] = useState<any[]>([]);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingSquad, setEditingSquad] = useState<Squad | null>(null);
 
   useEffect(() => {
     loadSquadData();
@@ -188,6 +191,46 @@ const SquadManager: React.FC = () => {
     return tag?.name || tagId;
   };
 
+  const handleEditSquad = (squad: Squad) => {
+    setEditingSquad(squad);
+    setShowEditModal(true);
+  };
+
+  const handleDeleteSquad = async (squadId: string) => {
+    if (window.confirm('Are you sure you want to delete this squad?')) {
+      try {
+        await squadApi.removeSquad(squadId);
+        await loadSquadData(); // Reload data after deletion
+      } catch (err) {
+        console.error('Failed to delete squad:', err);
+        alert('Failed to delete squad. Please try again.');
+      }
+    }
+  };
+
+  const handleCreateSquad = async (squadData: { name: string; description?: string }) => {
+    try {
+      await squadApi.addSquad(squadData);
+      setShowCreateModal(false);
+      await loadSquadData(); // Reload data after creation
+    } catch (err) {
+      console.error('Failed to create squad:', err);
+      alert('Failed to create squad. Please try again.');
+    }
+  };
+
+  const handleUpdateSquad = async (squadId: string, squadData: { name: string; description?: string }) => {
+    try {
+      await squadApi.updateSquad(squadId, squadData);
+      setShowEditModal(false);
+      setEditingSquad(null);
+      await loadSquadData(); // Reload data after update
+    } catch (err) {
+      console.error('Failed to update squad:', err);
+      alert('Failed to update squad. Please try again.');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -221,9 +264,18 @@ const SquadManager: React.FC = () => {
 
   return (
     <div className="p-6">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Squad Management</h2>
-        <p className="text-gray-600 mt-1">Manage your team squads, channels, and members</p>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Squad Management</h2>
+          <p className="text-gray-600 mt-1">Manage your team squads, channels, and members</p>
+        </div>
+        <button 
+          onClick={() => setShowCreateModal(true)}
+          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+        >
+          <PlusIcon className="h-4 w-4 mr-2" />
+          Create Squad
+        </button>
       </div>
 
       {/* Summary Stats */}
@@ -317,10 +369,16 @@ const SquadManager: React.FC = () => {
                   </div>
                   
                   <div className="flex items-center space-x-2">
-                    <button className="p-1 text-gray-400 hover:text-gray-600">
+                    <button 
+                      onClick={() => handleEditSquad(item.squad)}
+                      className="p-1 text-gray-400 hover:text-gray-600"
+                    >
                       <PencilSquareIcon className="h-4 w-4" />
                     </button>
-                    <button className="p-1 text-gray-400 hover:text-red-600">
+                    <button 
+                      onClick={() => handleDeleteSquad(item.squad.id)}
+                      className="p-1 text-gray-400 hover:text-red-600"
+                    >
                       <TrashIcon className="h-4 w-4" />
                     </button>
                   </div>
@@ -438,13 +496,114 @@ const SquadManager: React.FC = () => {
         ))}
       </div>
 
-      {/* Add New Squad Button */}
-      <div className="mt-6">
-        <button className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-          <PlusIcon className="h-5 w-5 mr-2" />
-          Add New Squad
-        </button>
-      </div>
+      {/* Create Squad Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Create New Squad</h3>
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                handleCreateSquad({
+                  name: formData.get('name') as string,
+                  description: formData.get('description') as string
+                });
+              }}>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Squad Name</label>
+                  <input
+                    type="text"
+                    name="name"
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                  <textarea
+                    name="description"
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateModal(false)}
+                    className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  >
+                    Create Squad
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Squad Modal */}
+      {showEditModal && editingSquad && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Edit Squad</h3>
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                handleUpdateSquad(editingSquad.id, {
+                  name: formData.get('name') as string,
+                  description: formData.get('description') as string
+                });
+              }}>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Squad Name</label>
+                  <input
+                    type="text"
+                    name="name"
+                    defaultValue={editingSquad.name}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                  <textarea
+                    name="description"
+                    defaultValue={editingSquad.description}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditModal(false);
+                      setEditingSquad(null);
+                    }}
+                    className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  >
+                    Update Squad
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -28,6 +28,9 @@ const Tags: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingTag, setEditingTag] = useState<Tag | null>(null);
 
   useEffect(() => {
     loadTags();
@@ -94,6 +97,46 @@ const Tags: React.FC = () => {
       month: 'short',
       day: 'numeric'
     });
+  };
+
+  const handleEditTag = (tag: Tag) => {
+    setEditingTag(tag);
+    setShowEditModal(true);
+  };
+
+  const handleDeleteTag = async (tagId: string) => {
+    if (window.confirm('Are you sure you want to delete this tag?')) {
+      try {
+        await tagsApi.deleteTag(tagId);
+        await loadTags(); // Reload tags after deletion
+      } catch (err) {
+        console.error('Failed to delete tag:', err);
+        alert('Failed to delete tag. Please try again.');
+      }
+    }
+  };
+
+  const handleCreateTag = async (tagData: { name: string; category: string }) => {
+    try {
+      await tagsApi.createTag(tagData);
+      setShowCreateModal(false);
+      await loadTags(); // Reload tags after creation
+    } catch (err) {
+      console.error('Failed to create tag:', err);
+      alert('Failed to create tag. Please try again.');
+    }
+  };
+
+  const handleUpdateTag = async (tagId: string, tagData: { name: string; category: string }) => {
+    try {
+      await tagsApi.updateTag(tagId, tagData);
+      setShowEditModal(false);
+      setEditingTag(null);
+      await loadTags(); // Reload tags after update
+    } catch (err) {
+      console.error('Failed to update tag:', err);
+      alert('Failed to update tag. Please try again.');
+    }
   };
 
   if (loading) {
@@ -241,7 +284,10 @@ const Tags: React.FC = () => {
             <h3 className="text-lg font-medium text-gray-900">
               All Tags ({filteredTags.length})
             </h3>
-            <button className="inline-flex items-center px-3 py-1 text-sm text-blue-600 hover:text-blue-700 border border-blue-200 rounded-md">
+            <button 
+              onClick={() => setShowCreateModal(true)}
+              className="inline-flex items-center px-3 py-1 text-sm text-blue-600 hover:text-blue-700 border border-blue-200 rounded-md"
+            >
               <PlusIcon className="h-4 w-4 mr-1" />
               Add Tag
             </button>
@@ -276,10 +322,16 @@ const Tags: React.FC = () => {
                   </div>
                   
                   <div className="flex items-center space-x-2">
-                    <button className="p-1 text-gray-400 hover:text-gray-600">
+                    <button 
+                      onClick={() => handleEditTag(tag)}
+                      className="p-1 text-gray-400 hover:text-gray-600"
+                    >
                       <PencilSquareIcon className="h-4 w-4" />
                     </button>
-                    <button className="p-1 text-gray-400 hover:text-red-600">
+                    <button 
+                      onClick={() => handleDeleteTag(tag.id)}
+                      className="p-1 text-gray-400 hover:text-red-600"
+                    >
                       <TrashIcon className="h-4 w-4" />
                     </button>
                   </div>
@@ -302,6 +354,128 @@ const Tags: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Create Tag Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Create New Tag</h3>
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                handleCreateTag({
+                  name: formData.get('name') as string,
+                  category: formData.get('category') as string
+                });
+              }}>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Tag Name</label>
+                  <input
+                    type="text"
+                    name="name"
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                  <select
+                    name="category"
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select Category</option>
+                    <option value="keyword">Keyword</option>
+                    <option value="topic">Topic</option>
+                    <option value="person">Person</option>
+                    <option value="project">Project</option>
+                    <option value="technology">Technology</option>
+                  </select>
+                </div>
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateModal(false)}
+                    className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  >
+                    Create Tag
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Tag Modal */}
+      {showEditModal && editingTag && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Edit Tag</h3>
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                handleUpdateTag(editingTag.id, {
+                  name: formData.get('name') as string,
+                  category: formData.get('category') as string
+                });
+              }}>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Tag Name</label>
+                  <input
+                    type="text"
+                    name="name"
+                    defaultValue={editingTag.name}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                  <select
+                    name="category"
+                    defaultValue={editingTag.category}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="keyword">Keyword</option>
+                    <option value="topic">Topic</option>
+                    <option value="person">Person</option>
+                    <option value="project">Project</option>
+                    <option value="technology">Technology</option>
+                  </select>
+                </div>
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditModal(false);
+                      setEditingTag(null);
+                    }}
+                    className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  >
+                    Update Tag
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

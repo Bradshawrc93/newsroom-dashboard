@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { ChannelController } from '../controllers/channelController';
-import { authenticateToken } from '../middleware/auth';
+
 
 const router = Router();
 const channelController = new ChannelController();
