@@ -184,16 +184,15 @@ export class SlackService {
         return [];
       }
 
-      return (result.members as SlackUser[])
-        // @ts-ignore
-        .filter(user => !user.is_bot && !user.is_restricted && !user.deleted)
-        .map(user => ({
+      return (result.members as any[])
+        .filter((user: any) => !user.is_bot && !user.is_restricted && !user.deleted)
+        .map((user: any) => ({
           id: user.id,
           name: user.real_name || user.name,
-          email: user.profile.email,
-          squad: this.inferSquadFromEmail(user.profile.email),
-          role: this.inferRoleFromEmail(user.profile.email),
-          avatar: user.profile.image_72,
+          email: user.profile?.email || '',
+          squad: this.inferSquadFromUserName(user.real_name || user.name),
+          role: this.inferRoleFromEmail(user.profile?.email || ''),
+          avatar: user.profile?.image_72 || '',
           commonTags: [] as string[],
           createdAt: new Date(),
         }));

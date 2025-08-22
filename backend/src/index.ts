@@ -45,6 +45,15 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Debug endpoint to check environment variables
+app.get('/debug/env', (req, res) => {
+  res.json({
+    slackBotToken: process.env.SLACK_BOT_TOKEN ? 'Present' : 'Missing',
+    slackBotTokenStart: process.env.SLACK_BOT_TOKEN ? process.env.SLACK_BOT_TOKEN.substring(0, 10) + '...' : 'None',
+    openaiApiKey: process.env.OPENAI_API_KEY ? 'Present' : 'Missing',
+  });
+});
+
 // Import routes
 import squadRoutes from './routes/squads';
 import messageRoutes from './routes/messages';
