@@ -5,32 +5,41 @@ import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 
-// Load environment variables
+// Load environment variables FIRST
 dotenv.config();
+
+// THEN import config after dotenv is loaded
+import { config, validateEnvironment, isDevelopment, isProduction } from './config/environment';
+
+// Validate environment
+validateEnvironment();
 
 // Create Express app
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = config.PORT;
 
 // Security middleware
 app.use(helmet());
 
 // CORS configuration
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  origin: config.CORS_ORIGIN,
   credentials: true,
 }));
 
 // Compression middleware
 app.use(compression());
 
-// Rate limiting - disabled for development
-// const limiter = rateLimit({
-//   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
-//   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'), // limit each IP to 100 requests per windowMs
-//   message: 'Too many requests from this IP, please try again later.',
-// });
-// app.use('/api/', limiter);
+// Rate limiting - enabled in production
+if (config.RATE_LIMIT_ENABLED) {
+  const limiter = rateLimit({
+    windowMs: config.RATE_LIMIT_WINDOW_MS,
+    max: config.RATE_LIMIT_MAX_REQUESTS,
+    message: 'Too many requests from this IP, please try again later.',
+  });
+  app.use('/api/', limiter);
+  console.log('✅ Rate limiting enabled');
+}
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
@@ -45,34 +54,28 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Debug endpoint to check environment variables
-app.get('/debug/env', (req, res) => {
-  res.json({
-    slackBotToken: process.env.SLACK_BOT_TOKEN ? 'Present' : 'Missing',
-    slackBotTokenStart: process.env.SLACK_BOT_TOKEN ? process.env.SLACK_BOT_TOKEN.substring(0, 10) + '...' : 'None',
-    openaiApiKey: process.env.OPENAI_API_KEY ? 'Present' : 'Missing',
+// Debug endpoint - only available in development
+if (isDevelopment) {
+  app.get('/debug/env', (req, res) => {
+    res.json({
+      slackBotToken: config.SLACK_BOT_TOKEN ? 'Present' : 'Missing',
+      slackBotTokenStart: config.SLACK_BOT_TOKEN ? config.SLACK_BOT_TOKEN.substring(0, 10) + '...' : 'None',
+      openaiApiKey: config.OPENAI_API_KEY ? 'Present' : 'Missing',
+      environment: config.NODE_ENV,
+      rateLimitEnabled: config.RATE_LIMIT_ENABLED,
+    });
   });
-});
+}
 
 // Import routes
-import squadRoutes from './routes/squads';
 import messageRoutes from './routes/messages';
-import channelRoutes from './routes/channels';
-import userRoutes from './routes/users';
-import tagRoutes from './routes/tags';
-import summaryRoutes from './routes/summaries';
+import aiRoutes from './routes/ai';
+import learningRoutes from './routes/learning';
 
 // API routes
-app.use('/api/squads', squadRoutes);
 app.use('/api/messages', messageRoutes);
-app.use('/api/channels', channelRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/tags', tagRoutes);
-app.use('/api/summaries', summaryRoutes);
-
-app.use('/api/analytics', (req, res) => {
-  res.json({ message: 'Analytics routes - coming soon' });
-});
+app.use('/api/ai', aiRoutes);
+app.use('/api/learning', learningRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
@@ -88,7 +91,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   
   res.status(err.status || 500).json({
     error: 'Internal Server Error',
-    message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong',
+    message: isDevelopment ? err.message : 'Something went wrong',
   });
 });
 

@@ -200,7 +200,43 @@
         "research"
       ],
       "createdAt": "2025-08-21T14:46:53.834Z"
+    },
+    {
+      "id": "craig-gifford",
+      "name": "Craig Gifford",
+      "email": "",
+      "squad": "portal-agg",
+      "commonTags": [
+        "portal",
+        "aggregator",
+        "rcm"
+      ],
+      "createdAt": "2025-08-22T13:14:46.405Z"
+    },
+    {
+      "id": "danny-mathieson",
+      "name": "Danny Mathieson",
+      "email": "",
+      "squad": "hitl",
+      "commonTags": [
+        "hitl",
+        "arc",
+        "access"
+      ],
+      "createdAt": "2025-08-22T13:14:46.405Z"
+    },
+    {
+      "id": "phil-bjorge",
+      "name": "Phil Bjorge",
+      "email": "",
+      "squad": "developer-efficiency",
+      "commonTags": [
+        "developer",
+        "workflow",
+        "efficiency"
+      ],
+      "createdAt": "2025-08-22T13:14:46.405Z"
     }
   ],
-  "lastUpdated": "2025-08-22T02:42:07.245Z"
+  "lastUpdated": "2025-08-22T13:17:18.295Z"
 }

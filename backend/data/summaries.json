@@ -29,6 +29,26 @@
       "aiGenerated": true,
       "createdAt": "2025-08-21T17:34:56.789Z",
       "updatedAt": "2025-08-21T17:34:56.789Z"
+    },
+    {
+      "id": "summary-2025-08-22",
+      "date": "2025-08-22T00:00:00.000Z",
+      "content": "The team successfully deployed the new authentication system to staging with the OAuth flow working perfectly. The portal aggregator integration is complete and now processes 2.3M transactions daily across all partners. The Pathfinder toolforge alpha is ready for internal testing.",
+      "keyPoints": [
+        "New authentication system deployed to staging with working OAuth flow",
+        "Portal aggregator integration completed, processing 2.3M transactions daily",
+        "Pathfinder toolforge alpha ready for internal testing"
+      ],
+      "actionItems": [
+        "Attend HITL squad meeting to discuss new ARC access protocols and BioWound integration",
+        "Begin internal testing of Pathfinder toolforge alpha"
+      ],
+      "messageCount": 5,
+      "squads": [
+        "general"
+      ],
+      "createdAt": "2025-08-22T19:45:08.068Z",
+      "updatedAt": "2025-08-22T19:45:08.068Z"
     }
   ],
   "lastUpdated": "2025-08-21T17:34:56.789Z"

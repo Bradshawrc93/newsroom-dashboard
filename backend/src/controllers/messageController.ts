@@ -1,26 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { SlackService } from '../services/slackService';
-import { messageStorage, userStorage, channelStorage } from '../utils/storage';
-import { ApiResponse, CustomError, Message, Channel } from '../types';
-import { z } from 'zod';
-
-// Validation schemas
-const fetchMessagesSchema = z.object({
-  channelId: z.string().min(1, 'Channel ID is required'),
-  startDate: z.string().datetime('Start date must be a valid ISO date'),
-  endDate: z.string().datetime('End date must be a valid ISO date'),
-  limit: z.number().min(1).max(1000).optional().default(100),
-});
-
-const searchMessagesSchema = z.object({
-  query: z.string().min(1, 'Search query is required'),
-  channelIds: z.array(z.string()).optional(),
-  userIds: z.array(z.string()).optional(),
-  startDate: z.string().datetime().optional(),
-  endDate: z.string().datetime().optional(),
-  tags: z.array(z.string()).optional(),
-  limit: z.number().min(1).max(100).optional().default(50),
-});
+import { messageStorage } from '../utils/storage';
+import { ApiResponse, CustomError, Message } from '../types';
+import { getChannelIds, getChannelById } from '../config/channels';
 
 export class MessageController {
   private slackService: SlackService;
@@ -29,83 +11,10 @@ export class MessageController {
     this.slackService = new SlackService(process.env.SLACK_BOT_TOKEN);
   }
 
-  /**
-   * Fetch messages from a specific channel for a date range
-   */
-  fetchChannelMessages = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const { channelId, startDate, endDate, limit } = fetchMessagesSchema.parse(req.body);
-      
-      const start = new Date(startDate);
-      const end = new Date(endDate);
 
-      // Validate date range
-      if (start >= end) {
-        throw new CustomError('Start date must be before end date', 400);
-      }
-
-      // Check if channel exists and is connected
-      const channels = await channelStorage.read();
-      const channel = channels.channels.find(c => c.id === channelId);
-      
-      if (!channel) {
-        throw new CustomError('Channel not found', 404);
-      }
-
-      if (!channel.isConnected) {
-        throw new CustomError('Channel is not connected. Please connect the channel first.', 400);
-      }
-
-      // Fetch messages from Slack
-      const messages = await this.slackService.getChannelMessages(channelId, start, end);
-
-      // Store messages in JSON storage
-      const existingData = await messageStorage.read();
-      const newMessages = messages.filter(newMsg => 
-        !existingData.messages.some(existingMsg => existingMsg.id === newMsg.id)
-      );
-
-      if (newMessages.length > 0) {
-        existingData.messages.push(...newMessages);
-        existingData.lastUpdated = new Date().toISOString();
-        await messageStorage.write(existingData);
-      }
-
-      // Store new users if any
-      const newUsers = messages
-        .map(msg => msg.userId)
-        .filter(userId => !existingData.messages.some(msg => msg.userId === userId));
-
-      if (newUsers.length > 0) {
-        const users = await this.slackService.getUsersByIds(newUsers);
-        const existingUsers = await userStorage.read();
-        existingUsers.users.push(...users);
-        existingUsers.lastUpdated = new Date().toISOString();
-        await userStorage.write(existingUsers);
-      }
-
-      const response: ApiResponse<{
-        messages: Message[];
-        totalFetched: number;
-        channel: Channel;
-      }> = {
-        success: true,
-        data: {
-          messages: messages.slice(0, limit),
-          totalFetched: messages.length,
-          channel,
-        },
-        message: `Successfully fetched ${messages.length} messages from ${channel.name}`,
-      };
-
-      res.status(200).json(response);
-    } catch (error) {
-      next(error);
-    }
-  };
 
   /**
-   * Get stored messages with filtering
+   * Get messages with filtering
    */
   getMessages = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
@@ -114,66 +23,63 @@ export class MessageController {
         userId,
         startDate,
         endDate,
-        tags,
         limit = 50,
         offset = 0,
+        search,
+        squad,
+        minImportance,
+        hasReactions,
+        sortBy = 'timestamp',
+        sortOrder = 'desc',
       } = req.query;
 
-      // Try to fetch real messages from Slack first
+      // Fetch messages from Slack
       let messages: Message[] = [];
       
       try {
         // If a specific channel is requested, fetch from that channel
         if (channelId) {
-          const start = startDate ? new Date(startDate as string) : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // Default to last 7 days
+          const start = startDate ? new Date(startDate as string) : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
           const end = endDate ? new Date(endDate as string) : new Date();
           
           const channelMessages = await this.slackService.getChannelMessages(channelId as string, start, end);
           messages = channelMessages;
         } else {
-          // Get the list of monitored channels that actually exist in the Slack workspace
-          const monitoredChannelNames = [
-            'thoughtful-access-voice-ai',
-            'nox-health',
-            'orthofi', 
-            'thoughtful-epic',
-            'portal-aggregator',
-            'hitl-squad',
-            'biowound',
-            'legent-health',
-            'thoughthub',
-            'pathfinder-toolforge-alpha',
-            'reporting-sdk',
-            'dd-worfklow-engine-partnership',
-            'customer-support',
-            'customer-delivery',
-            'prod-dev-experience',
-            'devex-support',
-            'sales-dev',
-            'services-dev',
-            'tools-dev',
-            'libraries-dev'
-          ];
+          // Fetch from monitored channels based on squad structure
+          const monitoredChannelIds = getChannelIds();
           
-          // Fetch from monitored channels
-          const channels = await this.slackService.getChannels();
-          const monitoredChannels = channels.filter(c => monitoredChannelNames.includes(c.name));
+          console.log(`Fetching messages from ${monitoredChannelIds.length} monitored channels in parallel...`);
           
-          console.log(`Fetching messages from ${monitoredChannels.length} monitored channels...`);
+          const start = startDate ? new Date(startDate as string) : new Date('2025-08-01');
+          const end = endDate ? new Date(endDate as string) : new Date();
           
-          for (const channel of monitoredChannels.slice(0, 3)) { // Limit to first 3 channels to avoid rate limits
-            const start = startDate ? new Date(startDate as string) : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-            const end = endDate ? new Date(endDate as string) : new Date();
+          // Fetch all channels in parallel for better performance
+          const channelPromises = monitoredChannelIds.map(async (channelId) => {
+            const channelConfig = getChannelById(channelId);
+            const channelName = channelConfig?.name || channelId;
             
             try {
-              console.log(`Fetching messages from channel: ${channel.name}`);
-              const channelMessages = await this.slackService.getChannelMessages(channel.id, start, end);
-              console.log(`Got ${channelMessages.length} messages from ${channel.name}`);
-              messages.push(...channelMessages);
+              console.log(`Fetching messages from channel: ${channelName} (${channelId})`);
+              const channelMessages = await this.slackService.getChannelMessagesWithUserToken(channelId, start, end);
+              console.log(`Got ${channelMessages.length} messages from ${channelName}`);
+              return channelMessages;
             } catch (channelError) {
-              console.error(`Error fetching messages from channel ${channel.name}:`, channelError);
+              console.error(`Error fetching messages from channel ${channelName}:`, channelError);
+              return []; // Return empty array on error
             }
-          }
+          });
+          
+          // Wait for all channels to complete
+          const channelResults = await Promise.allSettled(channelPromises);
+          
+          // Combine all successful results
+          channelResults.forEach((result, index) => {
+            if (result.status === 'fulfilled') {
+              messages.push(...result.value);
+            } else {
+              console.error(`Failed to fetch from channel ${monitoredChannelIds[index]}:`, result.reason);
+            }
+          });
         }
       } catch (slackError) {
         console.error('Error fetching messages from Slack:', slackError);
@@ -204,14 +110,80 @@ export class MessageController {
         filteredMessages = filteredMessages.filter(msg => new Date(msg.timestamp) <= end);
       }
 
-      if (tags && Array.isArray(tags)) {
+      // Text search
+      if (search) {
+        const searchTerm = (search as string).toLowerCase();
         filteredMessages = filteredMessages.filter(msg => 
-          tags.some((tag: string) => msg.tags.includes(tag))
+          msg.text.toLowerCase().includes(searchTerm) ||
+          msg.userName.toLowerCase().includes(searchTerm) ||
+          (msg.channelName && msg.channelName.toLowerCase().includes(searchTerm))
         );
       }
 
-      // Sort by timestamp (newest first)
-      filteredMessages.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      // Squad filter
+      if (squad) {
+        const squadName = (squad as string).toLowerCase();
+        filteredMessages = filteredMessages.filter(msg => {
+          const inferredSquad = this.inferSquadFromChannel(msg.channelName || '').toLowerCase();
+          return inferredSquad === squadName;
+        });
+      }
+
+      // Minimum importance filter
+      if (minImportance) {
+        const minScore = parseFloat(minImportance as string);
+        filteredMessages = filteredMessages.filter(msg => {
+          // For now, use a simple importance estimation
+          // In production, this would use stored AI analysis results
+          const estimatedImportance = this.estimateMessageImportance(msg);
+          return estimatedImportance >= minScore;
+        });
+      }
+
+      // Has reactions filter
+      if (hasReactions === 'true') {
+        filteredMessages = filteredMessages.filter(msg => 
+          msg.reactions && msg.reactions.length > 0
+        );
+      }
+
+      // Sorting
+      const sortField = sortBy as string;
+      const order = sortOrder as string;
+      
+      filteredMessages.sort((a, b) => {
+        let aValue: any, bValue: any;
+        
+        switch (sortField) {
+          case 'importance':
+            aValue = this.estimateMessageImportance(a);
+            bValue = this.estimateMessageImportance(b);
+            break;
+          case 'reactions':
+            aValue = a.reactions?.reduce((sum, r) => sum + r.count, 0) || 0;
+            bValue = b.reactions?.reduce((sum, r) => sum + r.count, 0) || 0;
+            break;
+          case 'username':
+            aValue = a.userName;
+            bValue = b.userName;
+            break;
+          case 'channel':
+            aValue = a.channelName || '';
+            bValue = b.channelName || '';
+            break;
+          default: // timestamp
+            aValue = new Date(a.timestamp).getTime();
+            bValue = new Date(b.timestamp).getTime();
+        }
+        
+        if (typeof aValue === 'string') {
+          return order === 'desc' 
+            ? bValue.localeCompare(aValue)
+            : aValue.localeCompare(bValue);
+        } else {
+          return order === 'desc' ? bValue - aValue : aValue - bValue;
+        }
+      });
 
       // Apply pagination
       const paginatedMessages = filteredMessages.slice(offset as number, (offset as number) + (limit as number));
@@ -239,157 +211,54 @@ export class MessageController {
   };
 
   /**
-   * Search messages by text content
+   * Infer squad from channel name
    */
-  searchMessages = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const { query, channelIds, userIds, startDate, endDate, tags, limit } = searchMessagesSchema.parse(req.body);
-
-      const messages = await messageStorage.read();
-      let filteredMessages = messages.messages;
-
-      // Apply filters
-      if (channelIds && channelIds.length > 0) {
-        filteredMessages = filteredMessages.filter(msg => channelIds.includes(msg.channelId));
-      }
-
-      if (userIds && userIds.length > 0) {
-        filteredMessages = filteredMessages.filter(msg => userIds.includes(msg.userId));
-      }
-
-      if (startDate) {
-        const start = new Date(startDate);
-        filteredMessages = filteredMessages.filter(msg => new Date(msg.timestamp) >= start);
-      }
-
-      if (endDate) {
-        const end = new Date(endDate);
-        filteredMessages = filteredMessages.filter(msg => new Date(msg.timestamp) <= end);
-      }
-
-      if (tags && tags.length > 0) {
-        filteredMessages = filteredMessages.filter(msg => 
-          tags.some(tag => msg.tags.includes(tag))
-        );
-      }
-
-      // Search in message text
-      const searchQuery = query.toLowerCase();
-      const searchResults = filteredMessages.filter(msg => 
-        msg.text.toLowerCase().includes(searchQuery) ||
-        msg.tags.some((tag: string) => tag.toLowerCase().includes(searchQuery))
-      );
-
-      // Sort by relevance (exact matches first, then partial matches)
-      searchResults.sort((a, b) => {
-        const aExact = a.text.toLowerCase().includes(searchQuery);
-        const bExact = b.text.toLowerCase().includes(searchQuery);
-        
-        if (aExact && !bExact) return -1;
-        if (!aExact && bExact) return 1;
-        
-        return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
-      });
-
-      const response: ApiResponse<{
-        messages: Message[];
-        total: number;
-        query: string;
-      }> = {
-        success: true,
-        data: {
-          messages: searchResults.slice(0, limit),
-          total: searchResults.length,
-          query,
-        },
-        message: `Found ${searchResults.length} messages matching "${query}"`,
-      };
-
-      res.status(200).json(response);
-    } catch (error) {
-      next(error);
-    }
-  };
+  private inferSquadFromChannel(channelName: string): string {
+    const name = channelName.toLowerCase();
+    
+    if (name.includes('voice') || name.includes('ai')) return 'voice-ai';
+    if (name.includes('rcm') || name.includes('epic')) return 'core-rcm';
+    if (name.includes('hitl')) return 'hitl';
+    if (name.includes('portal')) return 'portal-aggregator';
+    if (name.includes('thoughthub')) return 'thoughthub';
+    if (name.includes('nox')) return 'nox-health';
+    if (name.includes('orthofi')) return 'orthofi';
+    if (name.includes('biowound')) return 'biowound';
+    if (name.includes('legent')) return 'legent';
+    
+    return 'general';
+  }
 
   /**
-   * Get messages from yesterday (for daily summaries)
+   * Estimate message importance (simplified version)
    */
-  getYesterdayMessages = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      yesterday.setHours(0, 0, 0, 0);
-
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      const messages = await messageStorage.read();
-      const yesterdayMessages = messages.messages.filter(msg => {
-        const msgDate = new Date(msg.timestamp);
-        return msgDate >= yesterday && msgDate < today;
-      });
-
-      // Sort by timestamp
-      yesterdayMessages.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-
-      const response: ApiResponse<{
-        messages: Message[];
-        date: string;
-        total: number;
-      }> = {
-        success: true,
-        data: {
-          messages: yesterdayMessages,
-          date: yesterday.toISOString().split('T')[0],
-          total: yesterdayMessages.length,
-        },
-        message: `Retrieved ${yesterdayMessages.length} messages from yesterday`,
-      };
-
-      res.status(200).json(response);
-    } catch (error) {
-      next(error);
+  private estimateMessageImportance(message: Message): number {
+    let importance = 0.3; // Base importance
+    
+    // Factor in reactions
+    if (message.reactions && message.reactions.length > 0) {
+      const totalReactions = message.reactions.reduce((sum, r) => sum + r.count, 0);
+      importance += Math.min(totalReactions * 0.1, 0.3);
     }
-  };
-
-  /**
-   * Get message statistics
-   */
-  getMessageStats = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const messages = await messageStorage.read();
-      const users = await userStorage.read();
-      const channels = await channelStorage.read();
-
-      const stats = {
-        totalMessages: messages.messages.length,
-        totalUsers: users.users.length,
-        totalChannels: channels.channels.length,
-        connectedChannels: channels.channels.filter(c => c.isConnected).length,
-        lastUpdated: messages.lastUpdated,
-        messagesByChannel: {} as Record<string, number>,
-        messagesByUser: {} as Record<string, number>,
-        messagesByDate: {} as Record<string, number>,
-      };
-
-      // Calculate channel statistics
-      messages.messages.forEach(msg => {
-        stats.messagesByChannel[msg.channelId] = (stats.messagesByChannel[msg.channelId] || 0) + 1;
-        stats.messagesByUser[msg.userId] = (stats.messagesByUser[msg.userId] || 0) + 1;
-        
-        const date = new Date(msg.timestamp).toISOString().split('T')[0];
-        stats.messagesByDate[date] = (stats.messagesByDate[date] || 0) + 1;
-      });
-
-      const response: ApiResponse<typeof stats> = {
-        success: true,
-        data: stats,
-        message: 'Message statistics retrieved successfully',
-      };
-
-      res.status(200).json(response);
-    } catch (error) {
-      next(error);
-    }
-  };
+    
+    // Factor in message length
+    const wordCount = message.text.split(' ').length;
+    if (wordCount > 50) importance += 0.1;
+    if (wordCount > 100) importance += 0.1;
+    
+    // Factor in keywords
+    const importantKeywords = [
+      'urgent', 'critical', 'issue', 'bug', 'deployment', 'release',
+      'decision', 'announcement', 'milestone', 'launch'
+    ];
+    
+    const messageText = message.text.toLowerCase();
+    const keywordMatches = importantKeywords.filter(keyword => 
+      messageText.includes(keyword)
+    ).length;
+    
+    importance += Math.min(keywordMatches * 0.05, 0.2);
+    
+    return Math.min(importance, 1);
+  }
 }

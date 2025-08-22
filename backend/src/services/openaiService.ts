@@ -1,484 +1,338 @@
 import OpenAI from 'openai';
-import { 
-  Message, 
-  OpenAISummaryRequest, 
-  OpenAISummaryResponse,
-  Summary,
-  SentimentType
-} from '../types';
-import { cacheStorage } from '../utils/storage';
 import { CustomError } from '../types';
+
+export interface TagSuggestion {
+  tag: string;
+  category: 'squad' | 'keyword' | 'urgency' | 'type';
+  confidence: number;
+  reasoning?: string;
+}
+
+export interface TaggingResponse {
+  suggestions: TagSuggestion[];
+  summary?: string;
+  urgencyLevel: 'low' | 'medium' | 'high' | 'critical';
+}
+
+export interface SummaryRequest {
+  messages: Array<{
+    id: string;
+    text: string;
+    channelName: string;
+    userName: string;
+    timestamp: Date;
+    squad?: string;
+    tags?: string[];
+    importance?: number;
+  }>;
+  dateRange: {
+    start: Date;
+    end: Date;
+  };
+  squads: string[];
+}
+
+export interface SummaryResponse {
+  executiveSummary: string;
+  keyDevelopments: string[];
+  blockingIssues: string[];
+  achievements: string[];
+  actionItems: string[];
+  teamSentiment: 'positive' | 'neutral' | 'concerning';
+  activityMetrics: {
+    totalMessages: number;
+    activeSquads: string[];
+    topChannels: string[];
+  };
+}
 
 export class OpenAIService {
   private client: OpenAI;
+  private model: string;
+  private maxTokens: number;
 
   constructor() {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      console.warn('OPENAI_API_KEY environment variable is not set. AI features will be disabled.');
-      this.client = null;
-    } else {
-      this.client = new OpenAI({ apiKey });
+    if (!process.env.OPENAI_API_KEY) {
+      throw new CustomError('OpenAI API key is required', 500);
     }
+
+    this.client = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+
+    this.model = process.env.OPENAI_MODEL || 'gpt-4';
+    this.maxTokens = parseInt(process.env.OPENAI_MAX_TOKENS || '1000');
   }
 
   /**
-   * Generate summary for a collection of messages
+   * Analyze a message and suggest relevant tags
    */
-  async generateSummary(request: OpenAISummaryRequest): Promise<OpenAISummaryResponse> {
+  async analyzeMessage(
+    messageText: string,
+    channelName: string,
+    userName: string,
+    squadContext?: string[]
+  ): Promise<TaggingResponse> {
     try {
-      // Check cache first
-      const cacheKey = this.generateCacheKey(request);
-      const cached = await this.getFromCache(cacheKey);
-      if (cached) {
-        return cached;
-      }
-
-      const messages = request.messages;
-      if (messages.length === 0) {
-        return {
-          summary: 'No messages found for the specified time period.',
-          greeting: request.includeGreeting ? this.generateDefaultGreeting() : undefined,
-          keyTopics: [],
-          sentiment: 'neutral',
-          highlights: [],
-          tokensUsed: 0,
-        };
-      }
-
-      // If OpenAI client is not available, return a basic summary
-      if (!this.client) {
-        return {
-          summary: `Summary for ${request.date}: ${messages.length} messages processed. AI features are currently disabled.`,
-          greeting: request.includeGreeting ? this.generateDefaultGreeting() : undefined,
-          keyTopics: ['AI features disabled'],
-          sentiment: 'neutral',
-          highlights: [`${messages.length} messages processed`],
-          tokensUsed: 0,
-        };
-      }
-
-      // Prepare messages for OpenAI
-      const messageTexts = messages.map(msg => 
-        `[${msg.timestamp.toLocaleTimeString()}] ${msg.text}`
-      ).join('\n\n');
-
-      const prompt = this.buildSummaryPrompt(messageTexts, request.date, request.includeGreeting);
+      const prompt = this.buildTaggingPrompt(messageText, channelName, userName, squadContext);
       
       const completion = await this.client.chat.completions.create({
-        model: 'gpt-4',
+        model: this.model,
         messages: [
           {
             role: 'system',
-            content: 'You are an AI assistant that summarizes Slack conversations for product operations managers. Provide concise, actionable insights with a professional tone.'
+            content: 'You are an expert at analyzing Slack messages from product teams and assigning relevant tags. Always respond with valid JSON.'
           },
           {
             role: 'user',
-            content: prompt,
+            content: prompt
           }
         ],
-        max_tokens: request.maxTokens || 1000,
-        temperature: 0.3,
+        max_tokens: this.maxTokens,
+        temperature: 0.3, // Lower temperature for more consistent tagging
       });
 
-      const response = completion.choices[0]?.message?.content;
-      if (!response) {
+      const content = completion.choices[0]?.message?.content;
+      if (!content) {
         throw new CustomError('No response from OpenAI', 500);
-      }
-
-      // Parse the response
-      const parsedResponse = this.parseSummaryResponse(response, request.includeGreeting);
-      
-      // Cache the result
-      await this.cacheResult(cacheKey, parsedResponse);
-
-      return parsedResponse;
-    } catch (error) {
-      console.error('OpenAI summary generation error:', error);
-      throw new CustomError(
-        error instanceof Error ? error.message : 'Failed to generate summary',
-        500
-      );
-    }
-  }
-
-  /**
-   * Generate importance score for a message
-   */
-  async calculateMessageImportance(message: Message): Promise<number> {
-    try {
-      // If OpenAI client is not available, return a default importance score
-      if (!this.client) {
-        return 0.5; // Default medium importance
-      }
-
-      const prompt = `Rate the importance of this Slack message on a scale of 0-1, where 0 is not important and 1 is critical. Consider factors like urgency, business impact, and team relevance.
-
-Message: "${message.text}"
-Channel: ${message.channelId}
-User: ${message.userId}
-Reactions: ${message.reactions.length}
-Thread: ${message.threadId ? 'Yes' : 'No'}
-
-Respond with only a number between 0 and 1.`;
-
-      const completion = await this.client.chat.completions.create({
-        model: 'gpt-3.5-turbo',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an AI that rates message importance. Respond with only a number between 0 and 1.'
-          },
-          {
-            role: 'user',
-            content: prompt,
-          }
-        ],
-        max_tokens: 10,
-        temperature: 0.1,
-      });
-
-      const response = completion.choices[0]?.message?.content;
-      if (!response) {
-        return message.importance || 0.5;
-      }
-
-      const importance = parseFloat(response.trim());
-      return isNaN(importance) ? (message.importance || 0.5) : Math.max(0, Math.min(1, importance));
-    } catch (error) {
-      console.error('Error calculating message importance:', error);
-      return message.importance || 0.5;
-    }
-  }
-
-  /**
-   * Extract key topics from messages
-   */
-  async extractKeyTopics(messages: Message[]): Promise<string[]> {
-    try {
-      const messageTexts = messages.map(msg => msg.text).join('\n');
-      
-      const prompt = `Extract 5-10 key topics from these Slack messages. Focus on business-relevant topics, technical issues, decisions, and action items. Return as a JSON array of strings.
-
-Messages:
-${messageTexts}
-
-Respond with only a valid JSON array.`;
-
-      const completion = await this.client.chat.completions.create({
-        model: 'gpt-3.5-turbo',
-        messages: [
-          {
-            role: 'system',
-            content: 'You extract key topics from messages. Respond with only a valid JSON array of strings.'
-          },
-          {
-            role: 'user',
-            content: prompt,
-          }
-        ],
-        max_tokens: 200,
-        temperature: 0.2,
-      });
-
-      const response = completion.choices[0]?.message?.content;
-      if (!response) {
-        return [];
       }
 
       try {
-        const topics = JSON.parse(response);
-        return Array.isArray(topics) ? topics.slice(0, 10) : [];
-      } catch {
-        return [];
+        const response = JSON.parse(content) as TaggingResponse;
+        return this.validateTaggingResponse(response);
+      } catch (parseError) {
+        console.error('Failed to parse OpenAI response:', content);
+        throw new CustomError('Invalid response format from OpenAI', 500);
       }
     } catch (error) {
-      console.error('Error extracting key topics:', error);
-      return [];
+      console.error('OpenAI API error:', error);
+      if (error instanceof CustomError) {
+        throw error;
+      }
+      throw new CustomError('Failed to analyze message with AI', 500);
     }
   }
 
   /**
-   * Analyze sentiment of messages
+   * Generate a daily summary from messages
    */
-  async analyzeSentiment(messages: Message[]): Promise<SentimentType> {
+  async generateDailySummary(request: SummaryRequest): Promise<SummaryResponse> {
     try {
-      const messageTexts = messages.map(msg => msg.text).join('\n');
+      const prompt = this.buildSummaryPrompt(request);
       
-      const prompt = `Analyze the overall sentiment of these Slack messages. Classify as "positive", "neutral", or "negative".
-
-Messages:
-${messageTexts}
-
-Respond with only one word: positive, neutral, or negative.`;
-
       const completion = await this.client.chat.completions.create({
-        model: 'gpt-3.5-turbo',
+        model: this.model,
         messages: [
           {
             role: 'system',
-            content: 'You analyze sentiment. Respond with only one word: positive, neutral, or negative.'
+            content: 'You are an executive assistant creating daily summaries for a product operations manager. Focus on actionable insights and key developments. Always respond with valid JSON.'
           },
           {
             role: 'user',
-            content: prompt,
+            content: prompt
           }
         ],
-        max_tokens: 10,
-        temperature: 0.1,
+        max_tokens: 2000, // Longer for summaries
+        temperature: 0.4,
       });
 
-      const response = completion.choices[0]?.message?.content?.toLowerCase();
-      if (!response) {
-        return 'neutral';
-      }
-
-      if (response.includes('positive')) return 'positive';
-      if (response.includes('negative')) return 'negative';
-      return 'neutral';
-    } catch (error) {
-      console.error('Error analyzing sentiment:', error);
-      return 'neutral';
-    }
-  }
-
-  /**
-   * Generate daily summary from context
-   */
-  async generateDailySummary(context: string): Promise<string> {
-    try {
-      const completion = await this.client.chat.completions.create({
-        model: 'gpt-4',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an AI assistant that summarizes Slack conversations for product operations managers. Provide concise, actionable insights with a professional tone.'
-          },
-          {
-            role: 'user',
-            content: context,
-          }
-        ],
-        max_tokens: 1000,
-        temperature: 0.3,
-      });
-
-      const response = completion.choices[0]?.message?.content;
-      if (!response) {
+      const content = completion.choices[0]?.message?.content;
+      if (!content) {
         throw new CustomError('No response from OpenAI', 500);
       }
 
-      return response;
-    } catch (error) {
-      console.error('OpenAI daily summary generation error:', error);
-      throw new CustomError(
-        error instanceof Error ? error.message : 'Failed to generate daily summary',
-        500
-      );
-    }
-  }
-
-  /**
-   * Generate morning greeting
-   */
-  async generateMorningGreeting(date: string): Promise<string> {
-    try {
-      const prompt = `Generate a friendly, professional morning greeting for a product operations manager. Include the date and a brief motivational message. Keep it under 100 words.
-
-Date: ${date}
-
-Example format:
-"Good morning! It's [date]. Here's your daily rundown of yesterday's Slack activity. Let's make today productive! 🚀"`;
-
-      const completion = await this.client.chat.completions.create({
-        model: 'gpt-3.5-turbo',
-        messages: [
-          {
-            role: 'system',
-            content: 'You generate morning greetings. Keep responses friendly and professional.'
-          },
-          {
-            role: 'user',
-            content: prompt,
-          }
-        ],
-        max_tokens: 150,
-        temperature: 0.7,
-      });
-
-      return completion.choices[0]?.message?.content || this.generateDefaultGreeting();
-    } catch (error) {
-      console.error('Error generating morning greeting:', error);
-      return this.generateDefaultGreeting();
-    }
-  }
-
-  /**
-   * Build the summary prompt
-   */
-  private buildSummaryPrompt(messageTexts: string, date: string, includeGreeting?: boolean): string {
-    return `Summarize the following Slack messages from ${date}. 
-
-${includeGreeting ? 'Include a morning greeting at the beginning.' : ''}
-
-Provide:
-1. A concise summary of key discussions and decisions
-2. Important action items and follow-ups needed
-3. Any urgent issues or blockers mentioned
-4. Team collaboration highlights
-5. Technical or business insights
-
-Messages:
-${messageTexts}
-
-Format your response as:
-${includeGreeting ? 'GREETING: [morning greeting]\n\n' : ''}SUMMARY: [main summary]
-
-KEY_TOPICS: [comma-separated list of key topics]
-
-SENTIMENT: [positive/neutral/negative]
-
-HIGHLIGHTS: [bullet points of important items]
-
-Keep the summary professional and actionable for a product operations manager.`;
-  }
-
-  /**
-   * Parse the summary response from OpenAI
-   */
-  private parseSummaryResponse(response: string, includeGreeting?: boolean): OpenAISummaryResponse {
-    const lines = response.split('\n');
-    let greeting: string | undefined;
-    let summary = '';
-    let keyTopics: string[] = [];
-    let sentiment: SentimentType = 'neutral';
-    let highlights: string[] = [];
-
-    let currentSection = '';
-    
-    for (const line of lines) {
-      const trimmedLine = line.trim();
-      
-      if (trimmedLine.startsWith('GREETING:')) {
-        greeting = trimmedLine.replace('GREETING:', '').trim();
-        currentSection = 'greeting';
-      } else if (trimmedLine.startsWith('SUMMARY:')) {
-        currentSection = 'summary';
-        summary = trimmedLine.replace('SUMMARY:', '').trim();
-      } else if (trimmedLine.startsWith('KEY_TOPICS:')) {
-        currentSection = 'topics';
-        const topics = trimmedLine.replace('KEY_TOPICS:', '').trim();
-        keyTopics = topics.split(',').map(t => t.trim()).filter(t => t);
-      } else if (trimmedLine.startsWith('SENTIMENT:')) {
-        const sentimentText = trimmedLine.replace('SENTIMENT:', '').trim().toLowerCase();
-        if (sentimentText.includes('positive')) sentiment = 'positive';
-        else if (sentimentText.includes('negative')) sentiment = 'negative';
-        else sentiment = 'neutral';
-      } else if (trimmedLine.startsWith('HIGHLIGHTS:')) {
-        currentSection = 'highlights';
-      } else if (trimmedLine.startsWith('-') || trimmedLine.startsWith('•')) {
-        if (currentSection === 'highlights') {
-          highlights.push(trimmedLine.replace(/^[-•]\s*/, '').trim());
-        }
-      } else if (trimmedLine && currentSection === 'summary') {
-        summary += ' ' + trimmedLine;
+      try {
+        const response = JSON.parse(content) as SummaryResponse;
+        return this.validateSummaryResponse(response, request);
+      } catch (parseError) {
+        console.error('Failed to parse OpenAI summary response:', content);
+        throw new CustomError('Invalid summary response format from OpenAI', 500);
       }
-    }
-
-    // Generate greeting if not provided but requested
-    if (includeGreeting && !greeting) {
-      greeting = this.generateDefaultGreeting();
-    }
-
-    return {
-      summary: summary || 'No significant activity found.',
-      greeting,
-      keyTopics: keyTopics.length > 0 ? keyTopics : ['general discussion'],
-      sentiment,
-      highlights: highlights.length > 0 ? highlights : ['Review messages for details'],
-      tokensUsed: response.length / 4, // Rough estimate
-    };
-  }
-
-  /**
-   * Generate cache key for request
-   */
-  private generateCacheKey(request: OpenAISummaryRequest): string {
-    const messageIds = request.messages.map(m => m.id).sort();
-    return `summary_${request.date}_${messageIds.join('_')}_${request.includeGreeting}`;
-  }
-
-  /**
-   * Get result from cache
-   */
-  private async getFromCache(key: string): Promise<OpenAISummaryResponse | null> {
-    try {
-      const cacheData = await cacheStorage.read();
-      const cached = cacheData.cache[key];
-      if (cached && cached.timestamp) {
-        const age = Date.now() - cached.timestamp;
-        // Cache for 24 hours
-        if (age < 24 * 60 * 60 * 1000) {
-          return cached.data;
-        }
+    } catch (error) {
+      console.error('OpenAI summary API error:', error);
+      if (error instanceof CustomError) {
+        throw error;
       }
-      return null;
-    } catch (error) {
-      console.error('Cache read error:', error);
-      return null;
+      throw new CustomError('Failed to generate summary with AI', 500);
     }
   }
 
   /**
-   * Cache result
+   * Build the tagging prompt for OpenAI
    */
-  private async cacheResult(key: string, data: OpenAISummaryResponse): Promise<void> {
-    try {
-      await cacheStorage.update(cacheData => {
-        cacheData.cache[key] = {
-          data,
-          timestamp: Date.now(),
-        };
-        cacheData.lastUpdated = new Date().toISOString();
-        return cacheData;
-      });
-    } catch (error) {
-      console.error('Cache write error:', error);
-    }
-  }
-
-  /**
-   * Generate default greeting
-   */
-  private generateDefaultGreeting(): string {
-    const greetings = [
-      "Good morning! Here's your daily rundown of yesterday's Slack activity. Let's make today productive! 🚀",
-      "Rise and shine! Here's what happened in your Slack channels yesterday. Ready to tackle today? 💪",
-      "Good morning! Your Slack summary is ready. Let's dive into yesterday's key discussions and decisions. 📊",
+  private buildTaggingPrompt(
+    messageText: string,
+    channelName: string,
+    userName: string,
+    squadContext?: string[]
+  ): string {
+    const squads = squadContext || [
+      'voice-ai', 'core-rcm', 'epic', 'portal-aggregator', 'hitl', 'thoughthub',
+      'nox-health', 'orthofi', 'biowound', 'legent', 'general'
     ];
-    return greetings[Math.floor(Math.random() * greetings.length)];
+
+    return `Analyze this Slack message and suggest relevant tags:
+
+Message: "${messageText}"
+Channel: #${channelName}
+User: ${userName}
+
+Available squads/products: ${squads.join(', ')}
+
+Assign tags from these categories:
+
+1. SQUAD/PRODUCT: Which team/product this relates to
+   - voice-ai, core-rcm, epic, portal-aggregator, hitl, thoughthub
+   - nox-health, orthofi, biowound, legent, general
+
+2. KEYWORDS: Technical/business keywords
+   - deployment, bug-fix, feature, integration, testing, performance
+   - meeting, decision, update, announcement, question, discussion
+
+3. URGENCY: How urgent/important this seems
+   - routine, important, urgent, critical
+
+4. TYPE: What kind of message this is
+   - status-update, question, announcement, issue, achievement, discussion
+
+Return JSON in this exact format:
+{
+  "suggestions": [
+    {
+      "tag": "tag-name",
+      "category": "squad|keyword|urgency|type",
+      "confidence": 0.85,
+      "reasoning": "Brief explanation"
+    }
+  ],
+  "urgencyLevel": "low|medium|high|critical"
+}
+
+Only suggest tags that are clearly relevant with confidence > 0.6.`;
   }
 
   /**
-   * Get API usage statistics
+   * Build the summary prompt for OpenAI
    */
-  async getUsageStats(): Promise<{ tokensUsed: number; requestsMade: number }> {
-    try {
-      const cacheData = await cacheStorage.read();
-      let tokensUsed = 0;
-      let requestsMade = 0;
-
-      Object.values(cacheData.cache).forEach((item: any) => {
-        if (item.data && item.data.tokensUsed) {
-          tokensUsed += item.data.tokensUsed;
-          requestsMade++;
-        }
+  private buildSummaryPrompt(request: SummaryRequest): string {
+    const messagesBySquad = this.groupMessagesBySquad(request.messages);
+    const dateStr = request.dateRange.start.toDateString();
+    
+    let messagesText = '';
+    Object.entries(messagesBySquad).forEach(([squad, messages]) => {
+      messagesText += `\n## ${squad.toUpperCase()} SQUAD (${messages.length} messages)\n`;
+      messages.slice(0, 10).forEach(msg => { // Limit to prevent token overflow
+        messagesText += `- [${msg.channelName}] ${msg.userName}: ${msg.text.slice(0, 200)}...\n`;
       });
+    });
 
-      return { tokensUsed, requestsMade };
+    return `Analyze these Slack messages from ${dateStr} and create an executive summary:
+
+${messagesText}
+
+Total messages: ${request.messages.length}
+Active squads: ${request.squads.join(', ')}
+
+Create a comprehensive summary in JSON format:
+{
+  "executiveSummary": "2-3 sentence overview of the day's key activities",
+  "keyDevelopments": ["Important developments", "Major announcements"],
+  "blockingIssues": ["Issues that need attention", "Blockers mentioned"],
+  "achievements": ["Wins and completions", "Milestones reached"],
+  "actionItems": ["Follow-ups needed", "Decisions pending"],
+  "teamSentiment": "positive|neutral|concerning",
+  "activityMetrics": {
+    "totalMessages": ${request.messages.length},
+    "activeSquads": ["list", "of", "active", "squads"],
+    "topChannels": ["most", "active", "channels"]
+  }
+}
+
+Focus on actionable insights for a product operations manager.`;
+  }
+
+  /**
+   * Group messages by squad for better organization
+   */
+  private groupMessagesBySquad(messages: SummaryRequest['messages']): Record<string, SummaryRequest['messages']> {
+    const grouped: Record<string, SummaryRequest['messages']> = {};
+    
+    messages.forEach(message => {
+      const squad = message.squad || 'general';
+      if (!grouped[squad]) {
+        grouped[squad] = [];
+      }
+      grouped[squad].push(message);
+    });
+
+    return grouped;
+  }
+
+  /**
+   * Validate and sanitize tagging response
+   */
+  private validateTaggingResponse(response: TaggingResponse): TaggingResponse {
+    if (!response.suggestions || !Array.isArray(response.suggestions)) {
+      throw new CustomError('Invalid tagging response structure', 500);
+    }
+
+    // Filter out low-confidence suggestions
+    response.suggestions = response.suggestions.filter(s => 
+      s.confidence >= 0.6 && 
+      s.tag && 
+      s.category &&
+      ['squad', 'keyword', 'urgency', 'type'].includes(s.category)
+    );
+
+    // Ensure urgency level is valid
+    if (!['low', 'medium', 'high', 'critical'].includes(response.urgencyLevel)) {
+      response.urgencyLevel = 'medium';
+    }
+
+    return response;
+  }
+
+  /**
+   * Validate and sanitize summary response
+   */
+  private validateSummaryResponse(response: SummaryResponse, request: SummaryRequest): SummaryResponse {
+    // Ensure all required fields exist
+    response.executiveSummary = response.executiveSummary || 'No summary available';
+    response.keyDevelopments = response.keyDevelopments || [];
+    response.blockingIssues = response.blockingIssues || [];
+    response.achievements = response.achievements || [];
+    response.actionItems = response.actionItems || [];
+    
+    if (!['positive', 'neutral', 'concerning'].includes(response.teamSentiment)) {
+      response.teamSentiment = 'neutral';
+    }
+
+    // Ensure activity metrics exist
+    if (!response.activityMetrics) {
+      response.activityMetrics = {
+        totalMessages: request.messages.length,
+        activeSquads: request.squads,
+        topChannels: [...new Set(request.messages.map(m => m.channelName))].slice(0, 5)
+      };
+    }
+
+    return response;
+  }
+
+  /**
+   * Test OpenAI connection
+   */
+  async testConnection(): Promise<boolean> {
+    try {
+      const response = await this.client.chat.completions.create({
+        model: 'gpt-3.5-turbo',
+        messages: [{ role: 'user', content: 'Hello' }],
+        max_tokens: 5
+      });
+      return !!response.choices[0]?.message?.content;
     } catch (error) {
-      console.error('Error getting usage stats:', error);
-      return { tokensUsed: 0, requestsMade: 0 };
+      console.error('OpenAI connection test failed:', error);
+      return false;
     }
   }
 }
