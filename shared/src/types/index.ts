@@ -126,25 +126,7 @@ export interface ActivitySummary {
   sentiment: 'positive' | 'neutral' | 'negative';
 }
 
-// Authentication types
-export interface AuthUser {
-  id: string;
-  name: string;
-  email: string;
-  avatar?: string;
-  permissions: string[];
-}
 
-export interface LoginRequest {
-  code: string;
-  redirectUri: string;
-}
-
-export interface LoginResponse {
-  user: AuthUser;
-  token: string;
-  refreshToken: string;
-}
 
 // Slack integration types
 export interface SlackChannel {

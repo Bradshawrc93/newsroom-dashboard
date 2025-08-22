@@ -6,7 +6,7 @@ const router = Router();
 const channelController = new ChannelController();
 
 // Apply authentication middleware to all routes
-// router.use(authenticateToken); // Temporarily disabled for testing
+
 
 // Get all channels
 router.get('/', channelController.getAllChannels);

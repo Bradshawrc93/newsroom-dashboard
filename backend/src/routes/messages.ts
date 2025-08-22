@@ -6,7 +6,7 @@ const router = Router();
 const messageController = new MessageController();
 
 // Apply authentication middleware to all routes
-// router.use(authenticateToken); // Temporarily disabled for testing
+
 
 // Fetch messages from a specific channel
 router.post('/fetch', messageController.fetchChannelMessages);
