@@ -1,0 +1,95 @@
+{
+  "messages": [
+    {
+      "id": "msg_001",
+      "text": "Just deployed the new authentication system to staging. The OAuth flow is working perfectly now.",
+      "userId": "mike-johnson",
+      "channelId": "core-engineering",
+      "timestamp": "2025-08-21T10:30:00.000Z",
+      "tags": ["deployment", "authentication", "oauth"],
+      "importance": 0.85
+    },
+    {
+      "id": "msg_002",
+      "text": "User feedback from beta testing shows 87% satisfaction with the new voice AI features. Great work team!",
+      "userId": "alice-smith",
+      "channelId": "thoughtful-access-voice-ai",
+      "timestamp": "2025-08-21T09:15:00.000Z",
+      "tags": ["user-feedback", "voice-ai", "beta-testing"],
+      "importance": 0.92
+    },
+    {
+      "id": "msg_003",
+      "text": "The portal aggregator integration is complete. We're now processing 2.3M transactions daily across all partners.",
+      "userId": "craig-gifford-portal",
+      "channelId": "portal-aggregator",
+      "timestamp": "2025-08-21T08:45:00.000Z",
+      "tags": ["integration", "portal", "transactions"],
+      "importance": 0.78
+    },
+    {
+      "id": "msg_004",
+      "text": "HITL squad meeting at 2 PM today. We'll discuss the new ARC access protocols and BioWound integration.",
+      "userId": "andrew-armaneous",
+      "channelId": "hitl-squad",
+      "timestamp": "2025-08-21T07:30:00.000Z",
+      "tags": ["meeting", "hitl", "arc", "biowound"],
+      "importance": 0.65
+    },
+    {
+      "id": "msg_005",
+      "text": "Pathfinder toolforge alpha is ready for internal testing. The deep research capabilities are impressive.",
+      "userId": "voice",
+      "channelId": "pathfinder-toolforge-alpha",
+      "timestamp": "2025-08-21T06:20:00.000Z",
+      "tags": ["pathfinder", "toolforge", "alpha", "research"],
+      "importance": 0.88
+    },
+    {
+      "id": "msg_006",
+      "text": "Reporting SDK v2.1 released with enhanced analytics and real-time data streaming capabilities.",
+      "userId": "data-team",
+      "channelId": "reporting-sdk",
+      "timestamp": "2025-08-20T16:45:00.000Z",
+      "tags": ["sdk", "analytics", "real-time", "release"],
+      "importance": 0.75
+    },
+    {
+      "id": "msg_007",
+      "text": "Epic RCM integration with Thoughtful is progressing well. Jasmine has been doing excellent work on the API.",
+      "userId": "jasmine-shah",
+      "channelId": "thoughtful-epic",
+      "timestamp": "2025-08-20T15:20:00.000Z",
+      "tags": ["epic", "rcm", "integration", "api"],
+      "importance": 0.82
+    },
+    {
+      "id": "msg_008",
+      "text": "Developer efficiency workflow engine partnership with DD is finalized. This will streamline our CI/CD pipeline significantly.",
+      "userId": "dev-team",
+      "channelId": "dd-worfklow-engine-partnership",
+      "timestamp": "2025-08-20T14:10:00.000Z",
+      "tags": ["developer-efficiency", "workflow", "ci-cd", "partnership"],
+      "importance": 0.70
+    },
+    {
+      "id": "msg_009",
+      "text": "OrthoFi voice integration testing completed. The accuracy rate is 94% which exceeds our target of 90%.",
+      "userId": "aneesh-kanakamedala",
+      "channelId": "orthofi",
+      "timestamp": "2025-08-20T13:30:00.000Z",
+      "tags": ["orthofi", "voice", "integration", "testing", "accuracy"],
+      "importance": 0.89
+    },
+    {
+      "id": "msg_010",
+      "text": "Nox Health partnership discussions are progressing. Their API documentation is comprehensive and well-structured.",
+      "userId": "jake-mcclanahan",
+      "channelId": "nox-health",
+      "timestamp": "2025-08-20T12:15:00.000Z",
+      "tags": ["nox-health", "partnership", "api", "documentation"],
+      "importance": 0.73
+    }
+  ],
+  "lastUpdated": "2025-08-21T15:30:00.000Z"
+}

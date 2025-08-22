@@ -1,0 +1,206 @@
+{
+  "users": [
+    {
+      "id": "voice",
+      "name": "Voice",
+      "email": "",
+      "squad": "general",
+      "commonTags": [
+        "product"
+      ],
+      "createdAt": "2025-08-21T14:46:53.834Z"
+    },
+    {
+      "id": "jake-mcclanahan",
+      "name": "Jake McClanahan",
+      "email": "",
+      "squad": "voice",
+      "commonTags": [
+        "voice",
+        "ai"
+      ],
+      "createdAt": "2025-08-21T14:46:53.834Z"
+    },
+    {
+      "id": "aneesh-kanakamedala",
+      "name": "Aneesh Kanakamedala",
+      "email": "",
+      "squad": "voice",
+      "commonTags": [
+        "voice",
+        "ai"
+      ],
+      "createdAt": "2025-08-21T14:46:53.834Z"
+    },
+    {
+      "id": "jasmine-shah",
+      "name": "Jasmine Shah",
+      "email": "",
+      "squad": "epic",
+      "commonTags": [
+        "epic",
+        "rcm"
+      ],
+      "createdAt": "2025-08-21T14:46:53.834Z"
+    },
+    {
+      "id": "craig-gifford-portal",
+      "name": "Craig Gifford",
+      "email": "",
+      "squad": "portal-agg",
+      "commonTags": [
+        "portal",
+        "aggregator",
+        "rcm"
+      ],
+      "createdAt": "2025-08-21T14:46:53.834Z"
+    },
+    {
+      "id": "craig-gifford-hitl",
+      "name": "Craig Gifford",
+      "email": "",
+      "squad": "hitl",
+      "commonTags": [
+        "hitl",
+        "arc",
+        "access"
+      ],
+      "createdAt": "2025-08-21T14:46:53.834Z"
+    },
+    {
+      "id": "andrew-armaneous",
+      "name": "Andrew Armaneous",
+      "email": "",
+      "squad": "hitl",
+      "commonTags": [
+        "hitl",
+        "arc",
+        "access"
+      ],
+      "createdAt": "2025-08-21T14:46:53.834Z"
+    },
+    {
+      "id": "danny-mathieson-hitl",
+      "name": "Danny Mathieson",
+      "email": "",
+      "squad": "hitl",
+      "commonTags": [
+        "hitl",
+        "arc",
+        "access"
+      ],
+      "createdAt": "2025-08-21T14:46:53.834Z"
+    },
+    {
+      "id": "olivia-demir",
+      "name": "Olivia Demir",
+      "email": "",
+      "squad": "customer-facing",
+      "commonTags": [
+        "customer",
+        "support"
+      ],
+      "createdAt": "2025-08-21T14:46:53.834Z"
+    },
+    {
+      "id": "danny-mathieson-customer",
+      "name": "Danny Mathieson",
+      "email": "",
+      "squad": "customer-facing",
+      "commonTags": [
+        "customer",
+        "support"
+      ],
+      "createdAt": "2025-08-21T14:46:53.834Z"
+    },
+    {
+      "id": "quenby-mitchell",
+      "name": "Quenby Mitchell",
+      "email": "",
+      "squad": "thoughthub",
+      "commonTags": [
+        "thoughthub"
+      ],
+      "createdAt": "2025-08-21T14:46:53.834Z"
+    },
+    {
+      "id": "darrin-eden",
+      "name": "Darrin Eden",
+      "email": "",
+      "squad": "thoughthub",
+      "commonTags": [
+        "thoughthub"
+      ],
+      "createdAt": "2025-08-21T14:46:53.834Z"
+    },
+    {
+      "id": "sean-albito",
+      "name": "Sean Albito",
+      "email": "",
+      "squad": "thoughthub",
+      "commonTags": [
+        "thoughthub"
+      ],
+      "createdAt": "2025-08-21T14:46:53.834Z"
+    },
+    {
+      "id": "peter-agnew",
+      "name": "Peter Agnew",
+      "email": "",
+      "squad": "thoughthub",
+      "commonTags": [
+        "thoughthub"
+      ],
+      "createdAt": "2025-08-21T14:46:53.834Z"
+    },
+    {
+      "id": "jhonatan-lopes",
+      "name": "Jhonatan Lopes",
+      "email": "",
+      "squad": "developer-efficiency",
+      "commonTags": [
+        "developer",
+        "workflow",
+        "efficiency"
+      ],
+      "createdAt": "2025-08-21T14:46:53.834Z"
+    },
+    {
+      "id": "phil-bjorge-dev",
+      "name": "Phil Bjorge",
+      "email": "",
+      "squad": "developer-efficiency",
+      "commonTags": [
+        "developer",
+        "workflow",
+        "efficiency"
+      ],
+      "createdAt": "2025-08-21T14:46:53.834Z"
+    },
+    {
+      "id": "asa-downs",
+      "name": "Asa Downs",
+      "email": "",
+      "squad": "developer-efficiency",
+      "commonTags": [
+        "developer",
+        "workflow",
+        "efficiency"
+      ],
+      "createdAt": "2025-08-21T14:46:53.834Z"
+    },
+    {
+      "id": "phil-bjorge-research",
+      "name": "Phil Bjorge",
+      "email": "",
+      "squad": "deep-research",
+      "commonTags": [
+        "toolforge",
+        "pathfinder",
+        "research"
+      ],
+      "createdAt": "2025-08-21T14:46:53.834Z"
+    }
+  ],
+  "lastUpdated": "2025-08-22T01:12:52.394Z"
+}

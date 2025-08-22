@@ -4,6 +4,11 @@ import Dashboard from '@/pages/Dashboard'
 import Login from '@/pages/Login'
 import Layout from '@/components/Layout'
 import SquadManager from '@/components/SquadManager'
+import Users from '@/pages/Users'
+import Tags from '@/pages/Tags'
+import Messages from '@/pages/Messages'
+import Channels from '@/pages/Channels'
+import Analytics from '@/pages/Analytics'
 
 function App() {
   return (
@@ -13,11 +18,11 @@ function App() {
         <Route path="/" element={<Layout />}>
           <Route index element={<Dashboard />} />
           <Route path="squads" element={<SquadManager />} />
-          <Route path="messages" element={<div className="p-6">Messages Page - Coming Soon</div>} />
-          <Route path="channels" element={<div className="p-6">Channels Page - Coming Soon</div>} />
-          <Route path="users" element={<div className="p-6">Users Page - Coming Soon</div>} />
-          <Route path="tags" element={<div className="p-6">Tags Page - Coming Soon</div>} />
-          <Route path="analytics" element={<div className="p-6">Analytics Page - Coming Soon</div>} />
+          <Route path="messages" element={<Messages />} />
+          <Route path="channels" element={<Channels />} />
+          <Route path="users" element={<Users />} />
+          <Route path="tags" element={<Tags />} />
+          <Route path="analytics" element={<Analytics />} />
         </Route>
       </Routes>
     </div>

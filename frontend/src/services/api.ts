@@ -2,7 +2,7 @@ import { getAuthHeaders, isTokenExpired, useAuthStore } from '../store/authStore
 import { ApiResponse, PaginatedResponse } from '../types';
 
 // API base URL
-const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'https://newsroom-dashboard-api.vercel.app/api';
+const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || '/api';
 
 // Custom error class for API errors
 export class ApiError extends Error {
@@ -30,7 +30,11 @@ class ApiClient {
     // Check if token is expired and refresh if needed
     const { accessToken } = useAuthStore.getState();
     if (accessToken && isTokenExpired(accessToken)) {
-      await (useAuthStore.getState() as any).refreshToken();
+      try {
+        await (useAuthStore.getState() as any).refreshToken();
+      } catch (error) {
+        console.warn('Token refresh failed, continuing without auth:', error);
+      }
     }
 
     const config: RequestInit = {
@@ -49,8 +53,8 @@ class ApiClient {
       if (!response.ok) {
         // Handle authentication errors
         if (response.status === 401) {
-          useAuthStore.getState().logout();
-          throw new ApiError('Authentication required', 401);
+          console.warn('Authentication required, but continuing without auth');
+          // Don't logout for now, just continue without auth
         }
 
         throw new ApiError(

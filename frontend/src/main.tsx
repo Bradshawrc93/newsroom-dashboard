@@ -6,6 +6,8 @@ import { Toaster } from 'react-hot-toast'
 import App from './App.tsx'
 import './index.css'
 
+console.log('Starting Newsroom Dashboard...');
+
 // Create a client
 const queryClient = new QueryClient({
   defaultOptions: {

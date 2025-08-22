@@ -1,0 +1,35 @@
+{
+  "summaries": [
+    {
+      "id": "summary_2025-08-21_1734567890",
+      "date": "2025-08-21",
+      "title": "Daily Summary - Thursday, August 21, 2025",
+      "content": "Today was a productive day with several key developments across the team. The authentication system deployment was successfully completed, and user feedback on the new voice AI features has been overwhelmingly positive with 87% satisfaction. The team also made significant progress on the OAuth flow implementation.\n\nKey highlights include:\n- Successful deployment of authentication system to staging\n- Positive user feedback on voice AI features (87% satisfaction)\n- OAuth flow implementation completed\n- Team collaboration was strong across all channels\n\nAction items:\n- Monitor authentication system performance in production\n- Follow up on voice AI feature requests\n- Schedule review of OAuth implementation",
+      "highlights": [
+        "Just deployed the new authentication system to staging. The OAuth flow is working perfectly now.",
+        "User feedback from beta testing shows 87% satisfaction with the new voice AI features. Great work team!"
+      ],
+      "keyTopics": [
+        "deployment",
+        "authentication",
+        "oauth",
+        "voice",
+        "ai",
+        "user-feedback"
+      ],
+      "participants": [
+        "mike-johnson",
+        "alice-smith"
+      ],
+      "channels": [
+        "core-engineering",
+        "thoughtful-access-voice-ai"
+      ],
+      "messageCount": 2,
+      "aiGenerated": true,
+      "createdAt": "2025-08-21T17:34:56.789Z",
+      "updatedAt": "2025-08-21T17:34:56.789Z"
+    }
+  ],
+  "lastUpdated": "2025-08-21T17:34:56.789Z"
+}

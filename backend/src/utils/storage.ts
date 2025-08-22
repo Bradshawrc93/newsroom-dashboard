@@ -50,7 +50,7 @@ async function atomicWrite(filePath: string, data: any): Promise<void> {
 /**
  * Read JSON file with error handling
  */
-async function readJsonFile<T>(filePath: string): Promise<T> {
+export async function readJsonFile<T>(filePath: string): Promise<T> {
   try {
     const data = await readFile(filePath, 'utf-8');
     return JSON.parse(data);
@@ -63,7 +63,7 @@ async function readJsonFile<T>(filePath: string): Promise<T> {
 /**
  * Write JSON file with atomic operation
  */
-async function writeJsonFile<T>(filePath: string, data: T): Promise<void> {
+export async function writeJsonFile<T>(filePath: string, data: T): Promise<void> {
   try {
     await atomicWrite(filePath, data);
   } catch (error) {

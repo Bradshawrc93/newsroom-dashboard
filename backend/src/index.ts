@@ -24,13 +24,13 @@ app.use(cors({
 // Compression middleware
 app.use(compression());
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'), // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.',
-});
-app.use('/api/', limiter);
+// Rate limiting - disabled for development
+// const limiter = rateLimit({
+//   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
+//   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'), // limit each IP to 100 requests per windowMs
+//   message: 'Too many requests from this IP, please try again later.',
+// });
+// app.use('/api/', limiter);
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
@@ -50,24 +50,18 @@ import authRoutes from './routes/auth';
 import squadRoutes from './routes/squads';
 import messageRoutes from './routes/messages';
 import channelRoutes from './routes/channels';
+import userRoutes from './routes/users';
+import tagRoutes from './routes/tags';
+import summaryRoutes from './routes/summaries';
 
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/squads', squadRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/channels', channelRoutes);
-
-app.use('/api/users', (req, res) => {
-  res.json({ message: 'Users routes - coming soon' });
-});
-
-app.use('/api/tags', (req, res) => {
-  res.json({ message: 'Tags routes - coming soon' });
-});
-
-app.use('/api/summaries', (req, res) => {
-  res.json({ message: 'Summaries routes - coming soon' });
-});
+app.use('/api/users', userRoutes);
+app.use('/api/tags', tagRoutes);
+app.use('/api/summaries', summaryRoutes);
 
 app.use('/api/analytics', (req, res) => {
   res.json({ message: 'Analytics routes - coming soon' });
@@ -91,22 +85,11 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   });
 });
 
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-  console.log('SIGTERM received, shutting down gracefully');
-  process.exit(0);
-});
-
-process.on('SIGINT', async () => {
-  console.log('SIGINT received, shutting down gracefully');
-  process.exit(0);
-});
-
 // Import initialization
 import { initializeData } from './utils/initializeData';
 
 // Start server
-app.listen(PORT, async () => {
+const server = app.listen(PORT, async () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
   console.log(`🔗 API base URL: http://localhost:${PORT}/api`);
@@ -114,5 +97,23 @@ app.listen(PORT, async () => {
   // Initialize data
   await initializeData();
 });
+
+// Graceful shutdown
+const gracefulShutdown = (signal: string) => {
+  console.log(`\n${signal} received, shutting down gracefully...`);
+  server.close(() => {
+    console.log('HTTP server closed');
+    process.exit(0);
+  });
+  
+  // Force close after 10 seconds
+  setTimeout(() => {
+    console.error('Could not close connections in time, forcefully shutting down');
+    process.exit(1);
+  }, 10000);
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 export default app;

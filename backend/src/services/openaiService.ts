@@ -15,9 +15,11 @@ export class OpenAIService {
   constructor() {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      throw new Error('OPENAI_API_KEY environment variable is required');
+      console.warn('OPENAI_API_KEY environment variable is not set. AI features will be disabled.');
+      this.client = null;
+    } else {
+      this.client = new OpenAI({ apiKey });
     }
-    this.client = new OpenAI({ apiKey });
   }
 
   /**
@@ -40,6 +42,18 @@ export class OpenAIService {
           keyTopics: [],
           sentiment: 'neutral',
           highlights: [],
+          tokensUsed: 0,
+        };
+      }
+
+      // If OpenAI client is not available, return a basic summary
+      if (!this.client) {
+        return {
+          summary: `Summary for ${request.date}: ${messages.length} messages processed. AI features are currently disabled.`,
+          greeting: request.includeGreeting ? this.generateDefaultGreeting() : undefined,
+          keyTopics: ['AI features disabled'],
+          sentiment: 'neutral',
+          highlights: [`${messages.length} messages processed`],
           tokensUsed: 0,
         };
       }
@@ -93,6 +107,11 @@ export class OpenAIService {
    */
   async calculateMessageImportance(message: Message): Promise<number> {
     try {
+      // If OpenAI client is not available, return a default importance score
+      if (!this.client) {
+        return 0.5; // Default medium importance
+      }
+
       const prompt = `Rate the importance of this Slack message on a scale of 0-1, where 0 is not important and 1 is critical. Consider factors like urgency, business impact, and team relevance.
 
 Message: "${message.text}"
@@ -220,6 +239,42 @@ Respond with only one word: positive, neutral, or negative.`;
     } catch (error) {
       console.error('Error analyzing sentiment:', error);
       return 'neutral';
+    }
+  }
+
+  /**
+   * Generate daily summary from context
+   */
+  async generateDailySummary(context: string): Promise<string> {
+    try {
+      const completion = await this.client.chat.completions.create({
+        model: 'gpt-4',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an AI assistant that summarizes Slack conversations for product operations managers. Provide concise, actionable insights with a professional tone.'
+          },
+          {
+            role: 'user',
+            content: context,
+          }
+        ],
+        max_tokens: 1000,
+        temperature: 0.3,
+      });
+
+      const response = completion.choices[0]?.message?.content;
+      if (!response) {
+        throw new CustomError('No response from OpenAI', 500);
+      }
+
+      return response;
+    } catch (error) {
+      console.error('OpenAI daily summary generation error:', error);
+      throw new CustomError(
+        error instanceof Error ? error.message : 'Failed to generate daily summary',
+        500
+      );
     }
   }
 

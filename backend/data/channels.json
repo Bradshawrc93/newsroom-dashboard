@@ -1,0 +1,131 @@
+{
+  "channels": [
+    {
+      "id": "product",
+      "name": "product",
+      "squad": "general",
+      "isPrivate": false,
+      "memberCount": 0,
+      "isConnected": false,
+      "createdAt": "2025-08-21T14:46:53.834Z"
+    },
+    {
+      "id": "core-engineering",
+      "name": "core-engineering",
+      "squad": "general",
+      "isPrivate": false,
+      "memberCount": 0,
+      "isConnected": false,
+      "createdAt": "2025-08-21T14:46:53.834Z"
+    },
+    {
+      "id": "thoughtful-access-voice-ai",
+      "name": "thoughtful-access-voice-ai",
+      "squad": "voice",
+      "isPrivate": false,
+      "memberCount": 0,
+      "isConnected": false,
+      "createdAt": "2025-08-21T14:46:53.834Z"
+    },
+    {
+      "id": "nox-health",
+      "name": "nox-health",
+      "squad": "voice",
+      "isPrivate": false,
+      "memberCount": 0,
+      "isConnected": false,
+      "createdAt": "2025-08-21T14:46:53.834Z"
+    },
+    {
+      "id": "orthofi",
+      "name": "orthofi",
+      "squad": "voice",
+      "isPrivate": false,
+      "memberCount": 0,
+      "isConnected": false,
+      "createdAt": "2025-08-21T14:46:53.834Z"
+    },
+    {
+      "id": "thoughtful-epic",
+      "name": "thoughtful-epic",
+      "squad": "epic",
+      "isPrivate": false,
+      "memberCount": 0,
+      "isConnected": false,
+      "createdAt": "2025-08-21T14:46:53.834Z"
+    },
+    {
+      "id": "portal-aggregator",
+      "name": "portal-aggregator",
+      "squad": "portal-agg",
+      "isPrivate": false,
+      "memberCount": 0,
+      "isConnected": false,
+      "createdAt": "2025-08-21T14:46:53.834Z"
+    },
+    {
+      "id": "hitl-squad",
+      "name": "hitl-squad",
+      "squad": "hitl",
+      "isPrivate": false,
+      "memberCount": 0,
+      "isConnected": false,
+      "createdAt": "2025-08-21T14:46:53.834Z"
+    },
+    {
+      "id": "biowound",
+      "name": "BioWound",
+      "squad": "hitl",
+      "isPrivate": false,
+      "memberCount": 0,
+      "isConnected": false,
+      "createdAt": "2025-08-21T14:46:53.834Z"
+    },
+    {
+      "id": "legent",
+      "name": "Legent",
+      "squad": "hitl",
+      "isPrivate": false,
+      "memberCount": 0,
+      "isConnected": false,
+      "createdAt": "2025-08-21T14:46:53.834Z"
+    },
+    {
+      "id": "thoughthub",
+      "name": "thoughthub",
+      "squad": "thoughthub",
+      "isPrivate": false,
+      "memberCount": 0,
+      "isConnected": false,
+      "createdAt": "2025-08-21T14:46:53.834Z"
+    },
+    {
+      "id": "dd-worfklow-engine-partnership",
+      "name": "dd-worfklow-engine-partnership",
+      "squad": "developer-efficiency",
+      "isPrivate": false,
+      "memberCount": 0,
+      "isConnected": false,
+      "createdAt": "2025-08-21T14:46:53.834Z"
+    },
+    {
+      "id": "reporting-sdk",
+      "name": "reporting-sdk",
+      "squad": "data",
+      "isPrivate": false,
+      "memberCount": 0,
+      "isConnected": false,
+      "createdAt": "2025-08-21T14:46:53.834Z"
+    },
+    {
+      "id": "pathfinder-toolforge-alpha",
+      "name": "pathfinder-toolforge-alpha",
+      "squad": "deep-research",
+      "isPrivate": false,
+      "memberCount": 0,
+      "isConnected": false,
+      "createdAt": "2025-08-21T14:46:53.834Z"
+    }
+  ],
+  "lastUpdated": "2025-08-22T01:12:52.395Z"
+}

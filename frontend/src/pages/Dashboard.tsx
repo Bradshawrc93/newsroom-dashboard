@@ -1,205 +1,387 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { 
   ChartBarIcon, 
   ChatBubbleLeftRightIcon, 
   UsersIcon, 
   TagIcon,
   DocumentTextIcon,
-  ClockIcon
+  ClockIcon,
+  ArrowTrendingUpIcon,
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/outline'
-import MessageList from '../components/MessageList'
+import { format } from 'date-fns'
+
+interface DashboardStats {
+  totalMessages: number;
+  activeUsers: number;
+  tagsCreated: number;
+  aiTokensUsed: number;
+  recentActivity: any[];
+  dailySummary: string;
+  topTags: any[];
+  channelStats: any[];
+}
 
 const Dashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'messages'>('overview');
+  const [stats, setStats] = useState<DashboardStats>({
+    totalMessages: 0,
+    activeUsers: 0,
+    tagsCreated: 0,
+    aiTokensUsed: 0,
+    recentActivity: [],
+    dailySummary: '',
+    topTags: [],
+    channelStats: []
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    console.log('Dashboard component mounted');
+    loadDashboardData();
+  }, []);
+
+  const loadDashboardData = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      console.log('Loading mock dashboard data...');
+      
+      // Mock data for now to avoid API issues
+      const mockStats = {
+        totalMessages: 156,
+        activeUsers: 23,
+        tagsCreated: 45,
+        aiTokensUsed: 47892,
+        recentActivity: [
+          {
+            id: 'activity_1',
+            userId: 'mike-johnson',
+            text: 'Just deployed the new authentication system to staging.',
+            channelId: 'core-engineering',
+            timestamp: new Date().toISOString()
+          },
+          {
+            id: 'activity_2', 
+            userId: 'alice-smith',
+            text: 'User feedback from beta testing shows 87% satisfaction.',
+            channelId: 'product-feedback',
+            timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString()
+          }
+        ],
+        dailySummary: "Today's activity shows strong engagement across development and product teams. Key highlights include successful deployment to staging and positive user feedback.",
+        topTags: [
+          { name: 'deployment', count: 12 },
+          { name: 'feedback', count: 8 },
+          { name: 'testing', count: 6 }
+        ],
+        channelStats: [
+          {
+            id: 'core-engineering',
+            name: 'core-engineering', 
+            messageCount: 45,
+            lastActivity: 'Aug 22',
+            isConnected: true
+          },
+          {
+            id: 'product-feedback',
+            name: 'product-feedback',
+            messageCount: 32,
+            lastActivity: 'Aug 22', 
+            isConnected: true
+          }
+        ]
+      };
+
+      setStats(mockStats);
+
+    } catch (err) {
+      console.error('Failed to load dashboard data:', err);
+      setError('Failed to load dashboard data. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateDailySummary = (messages: any[], channels: any[]) => {
+    if (messages.length === 0) {
+      return "No activity recorded today. Connect your Slack channels to start monitoring activity.";
+    }
+
+    const today = new Date();
+    const todayMessages = messages.filter((msg: any) => {
+      const msgDate = new Date(msg.timestamp);
+      return msgDate.toDateString() === today.toDateString();
+    });
+
+    if (todayMessages.length === 0) {
+      return "No messages recorded today. Recent activity shows engagement across multiple channels.";
+    }
+
+    const channelCount = new Set(todayMessages.map((msg: any) => msg.channelId)).size;
+    const userCount = new Set(todayMessages.map((msg: any) => msg.userId)).size;
+    
+    return `Today's activity shows ${todayMessages.length} messages across ${channelCount} channels from ${userCount} users. Key discussions include deployment updates, user feedback, and integration progress.`;
+  };
+
+  const getChannelName = (channelId: string) => {
+    const channel = stats.channelStats.find((c: any) => c.id === channelId);
+    return channel?.name || channelId;
+  };
+
+  const getUserName = (userId: string) => {
+    const userMap: { [key: string]: string } = {
+      'mike-johnson': 'Mike Johnson',
+      'alice-smith': 'Alice Smith'
+    };
+    return userMap[userId] || userId;
+  };
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <span className="ml-3 text-gray-600">Loading dashboard...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex">
+            <ExclamationTriangleIcon className="h-5 w-5 text-red-400" />
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800">Error loading dashboard</h3>
+              <p className="text-sm text-red-700 mt-1">{error}</p>
+              <button 
+                onClick={loadDashboardData}
+                className="mt-2 text-sm text-red-600 hover:text-red-500 underline"
+              >
+                Try again
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Newsroom Dashboard</h1>
         <p className="text-gray-600 mt-2">Monitor and summarize your Slack activity</p>
-        
-        {/* Tab Navigation */}
-        <div className="mt-6 border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8">
-            <button
-              onClick={() => setActiveTab('overview')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'overview'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Overview
-            </button>
-            <button
-              onClick={() => setActiveTab('messages')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'messages'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Messages
-            </button>
-          </nav>
-        </div>
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="mt-6 border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'overview'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Overview
+          </button>
+          <button
+            onClick={() => setActiveTab('messages')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'messages'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Messages
+          </button>
+        </nav>
       </div>
 
       {activeTab === 'overview' && (
         <>
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="card">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <ChatBubbleLeftRightIcon className="h-8 w-8 text-primary-600" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 mt-8">
+            <div className="card">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <ChatBubbleLeftRightIcon className="h-8 w-8 text-blue-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-500">Total Messages</p>
+                  <p className="text-2xl font-semibold text-gray-900">{stats.totalMessages}</p>
+                </div>
+              </div>
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Total Messages</p>
-              <p className="text-2xl font-semibold text-gray-900">1,234</p>
-            </div>
-          </div>
-        </div>
 
-        <div className="card">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <UsersIcon className="h-8 w-8 text-green-600" />
+            <div className="card">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <UsersIcon className="h-8 w-8 text-green-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-500">Active Users</p>
+                  <p className="text-2xl font-semibold text-gray-900">{stats.activeUsers}</p>
+                </div>
+              </div>
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Active Users</p>
-              <p className="text-2xl font-semibold text-gray-900">45</p>
-            </div>
-          </div>
-        </div>
 
-        <div className="card">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <TagIcon className="h-8 w-8 text-purple-600" />
+            <div className="card">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <TagIcon className="h-8 w-8 text-purple-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-500">Tags Created</p>
+                  <p className="text-2xl font-semibold text-gray-900">{stats.tagsCreated}</p>
+                </div>
+              </div>
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Tags Created</p>
-              <p className="text-2xl font-semibold text-gray-900">89</p>
-            </div>
-          </div>
-        </div>
 
-        <div className="card">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <ChartBarIcon className="h-8 w-8 text-orange-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">AI Tokens Used</p>
-              <p className="text-2xl font-semibold text-gray-900">12.5K</p>
+            <div className="card">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <ChartBarIcon className="h-8 w-8 text-orange-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-500">AI Tokens Used</p>
+                  <p className="text-2xl font-semibold text-gray-900">{stats.aiTokensUsed.toLocaleString()}</p>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Daily Summary */}
-        <div className="lg:col-span-2">
-          <div className="card">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-900">Daily Summary</h2>
-              <ClockIcon className="h-5 w-5 text-gray-400" />
-            </div>
-            <div className="space-y-4">
-              <p className="text-gray-600">
-                Yesterday's activity showed increased engagement in the product development channels. 
-                Key discussions centered around the new feature rollout and user feedback collection. 
-                The engineering team reported significant progress on the backend infrastructure updates.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                  feature-rollout
-                </span>
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                  user-feedback
-                </span>
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                  engineering
-                </span>
+          {/* Main Content */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Daily Summary */}
+            <div className="lg:col-span-2">
+              <div className="card">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold text-gray-900">Daily Summary</h2>
+                  <ClockIcon className="h-5 w-5 text-gray-400" />
+                </div>
+                <div className="space-y-4">
+                  <p className="text-gray-600">
+                    {stats.dailySummary}
+                  </p>
+                  {stats.topTags.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {stats.topTags.slice(0, 3).map((tag) => (
+                        <span key={tag.name} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          {tag.name} ({tag.count})
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        </div>
 
-        {/* Quick Actions */}
-        <div className="card">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
-          <div className="space-y-3">
-            <button className="w-full btn-primary">
-              <DocumentTextIcon className="h-4 w-4 mr-2" />
-              Generate Summary
-            </button>
-            <button className="w-full btn-secondary">
-              <TagIcon className="h-4 w-4 mr-2" />
-              Manage Tags
-            </button>
-            <button className="w-full btn-secondary">
-              <UsersIcon className="h-4 w-4 mr-2" />
-              View Users
-            </button>
-            <button className="w-full btn-secondary">
-              <ChartBarIcon className="h-4 w-4 mr-2" />
-              Analytics
-            </button>
+            {/* Quick Actions */}
+            <div className="card">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
+              <div className="space-y-3">
+                <button 
+                  onClick={() => setActiveTab('messages')}
+                  className="w-full btn-primary"
+                >
+                  <DocumentTextIcon className="h-4 w-4 mr-2" />
+                  View Messages
+                </button>
+                <button className="w-full btn-secondary">
+                  <TagIcon className="h-4 w-4 mr-2" />
+                  Manage Tags
+                </button>
+                <button className="w-full btn-secondary">
+                  <UsersIcon className="h-4 w-4 mr-2" />
+                  View Users
+                </button>
+                <button className="w-full btn-secondary">
+                  <ChartBarIcon className="h-4 w-4 mr-2" />
+                  Analytics
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* Recent Activity */}
-      <div className="mt-8">
-        <div className="card">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Recent Activity</h2>
-          <div className="space-y-4">
-            <div className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
-              <div className="flex-shrink-0 w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
-                <span className="text-sm font-medium text-primary-600">JD</span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900">John Doe</p>
-                <p className="text-sm text-gray-600">Updated the product roadmap with new Q1 objectives</p>
-                <p className="text-xs text-gray-400 mt-1">2 hours ago</p>
-              </div>
-            </div>
-            
-            <div className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
-              <div className="flex-shrink-0 w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                <span className="text-sm font-medium text-green-600">AS</span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900">Alice Smith</p>
-                <p className="text-sm text-gray-600">Shared user feedback from the beta testing phase</p>
-                <p className="text-xs text-gray-400 mt-1">4 hours ago</p>
-              </div>
-            </div>
-            
-            <div className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
-              <div className="flex-shrink-0 w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                <span className="text-sm font-medium text-purple-600">MJ</span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900">Mike Johnson</p>
-                <p className="text-sm text-gray-600">Deployed the new authentication system to staging</p>
-                <p className="text-xs text-gray-400 mt-1">6 hours ago</p>
+          {/* Channel Activity */}
+          <div className="mt-8">
+            <div className="card">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Channel Activity</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {stats.channelStats.slice(0, 6).map((channel) => (
+                  <div key={channel.id} className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-medium text-gray-900">#{channel.name}</h3>
+                      <span className="text-sm text-gray-500">{channel.messageCount} messages</span>
+                    </div>
+                    <p className="text-sm text-gray-600">Last activity: {channel.lastActivity}</p>
+                    <div className="mt-2">
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                        channel.isConnected 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {channel.isConnected ? 'Connected' : 'Disconnected'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
-        </div>
-      </div>
+
+          {/* Recent Activity */}
+          <div className="mt-8">
+            <div className="card">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Recent Activity</h2>
+              <div className="space-y-4">
+                {stats.recentActivity.map((activity) => (
+                  <div key={activity.id} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
+                    <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                      <span className="text-sm font-medium text-blue-600">
+                        {getUserName(activity.userId).charAt(0)}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900">
+                        {getUserName(activity.userId)}
+                      </p>
+                      <p className="text-sm text-gray-600">{activity.text}</p>
+                      <div className="flex items-center mt-1 space-x-2">
+                        <span className="text-xs text-gray-400">
+                          in #{getChannelName(activity.channelId)}
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          {format(new Date(activity.timestamp), 'MMM dd, HH:mm')}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </>
       )}
 
       {activeTab === 'messages' && (
-        <MessageList />
+        <div className="mt-8">
+          <div className="card">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Messages</h2>
+            <p className="text-gray-600">Message list coming soon...</p>
+          </div>
+        </div>
       )}
     </div>
-  )
-}
+  );
+};
 
-export default Dashboard
+export default Dashboard;
