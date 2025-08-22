@@ -26,7 +26,7 @@ export class MessageController {
   private slackService: SlackService;
 
   constructor() {
-    this.slackService = new SlackService();
+    this.slackService = new SlackService(process.env.SLACK_BOT_TOKEN);
   }
 
   /**
@@ -119,8 +119,43 @@ export class MessageController {
         offset = 0,
       } = req.query;
 
-      const messages = await messageStorage.read();
-      let filteredMessages = messages.messages;
+      // Try to fetch real messages from Slack first
+      let messages: Message[] = [];
+      
+      try {
+        // If a specific channel is requested, fetch from that channel
+        if (channelId) {
+          const start = startDate ? new Date(startDate as string) : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // Default to last 7 days
+          const end = endDate ? new Date(endDate as string) : new Date();
+          
+          const channelMessages = await this.slackService.getChannelMessages(channelId as string, start, end);
+          messages = channelMessages;
+        } else {
+          // Fetch from all connected channels
+          const channels = await this.slackService.getChannels();
+          const connectedChannels = channels.filter(c => c.isConnected);
+          
+          for (const channel of connectedChannels.slice(0, 5)) { // Limit to first 5 channels to avoid rate limits
+            const start = startDate ? new Date(startDate as string) : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+            const end = endDate ? new Date(endDate as string) : new Date();
+            
+            try {
+              const channelMessages = await this.slackService.getChannelMessages(channel.id, start, end);
+              messages.push(...channelMessages);
+            } catch (channelError) {
+              console.error(`Error fetching messages from channel ${channel.name}:`, channelError);
+            }
+          }
+        }
+      } catch (slackError) {
+        console.error('Error fetching messages from Slack:', slackError);
+        
+        // Fallback to stored messages
+        const storedData = await messageStorage.read();
+        messages = storedData.messages;
+      }
+
+      let filteredMessages = messages;
 
       // Apply filters
       if (channelId) {
@@ -143,7 +178,7 @@ export class MessageController {
 
       if (tags && Array.isArray(tags)) {
         filteredMessages = filteredMessages.filter(msg => 
-          tags.some(tag => msg.tags.includes(tag))
+          tags.some((tag: string) => msg.tags.includes(tag))
         );
       }
 
@@ -166,7 +201,7 @@ export class MessageController {
           limit: limit as number,
           offset: offset as number,
         },
-        message: `Retrieved ${paginatedMessages.length} messages`,
+        message: `Retrieved ${paginatedMessages.length} messages from Slack`,
       };
 
       res.status(200).json(response);

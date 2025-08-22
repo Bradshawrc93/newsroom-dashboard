@@ -1,25 +1,55 @@
 import { Request, Response } from 'express';
+import { SlackService } from '../services/slackService';
 import { readJsonFile, writeJsonFile } from '../utils/storage';
+import { SlackUser } from '../types';
 
 const USERS_FILE = 'data/users.json';
 
 export const getUsers = async (req: Request, res: Response) => {
   try {
-    const data = await readJsonFile(USERS_FILE) as any;
-    const users = data.users || [];
+    // Initialize Slack service with bot token
+    const slackService = new SlackService(process.env.SLACK_BOT_TOKEN);
+    
+    // Fetch real users from Slack
+    const slackUsers = await slackService.getUsers();
+    
+    // Transform Slack users to our format
+    const users = (slackUsers as any[])
+      .filter(user => !user.is_bot && !user.deleted) // Filter out bots and deleted users
+      .map(user => ({
+        id: user.id,
+        name: user.real_name || user.name,
+        email: user.profile?.email || '',
+        squad: slackService.inferSquadFromUserName(user.real_name || user.name),
+        commonTags: [] as string[], // Will be populated based on message analysis
+        createdAt: new Date().toISOString()
+      }));
     
     res.json({
       success: true,
       data: { users },
-      message: 'Users retrieved successfully'
+      message: 'Users retrieved successfully from Slack'
     });
   } catch (error) {
-    console.error('Error getting users:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to retrieve users',
-      message: 'Internal server error'
-    });
+    console.error('Error getting users from Slack:', error);
+    
+    // Fallback to JSON file if Slack fails
+    try {
+      const data = await readJsonFile(USERS_FILE) as any;
+      const users = data.users || [];
+      
+      res.json({
+        success: true,
+        data: { users },
+        message: 'Users retrieved from fallback data'
+      });
+    } catch (fallbackError) {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to retrieve users',
+        message: 'Internal server error'
+      });
+    }
   }
 };
 

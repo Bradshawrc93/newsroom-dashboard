@@ -17,7 +17,7 @@ export class ChannelController {
   private slackService: SlackService;
 
   constructor() {
-    this.slackService = new SlackService();
+    this.slackService = new SlackService(process.env.SLACK_BOT_TOKEN);
   }
 
   /**
@@ -25,7 +25,19 @@ export class ChannelController {
    */
   getAllChannels = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const channels = await channelStorage.read();
+      // Fetch real channels from Slack
+      const slackChannels = await this.slackService.getChannels();
+      
+      // Transform Slack channels to our format
+      const channels = slackChannels.map(channel => ({
+        id: channel.id,
+        name: channel.name,
+        squad: this.slackService.inferSquadFromChannelName(channel.name),
+        isPrivate: channel.isPrivate,
+        memberCount: channel.memberCount,
+        isConnected: true, // All fetched channels are connected
+        createdAt: new Date()
+      }));
       
       const response: ApiResponse<{
         channels: Channel[];
@@ -34,16 +46,39 @@ export class ChannelController {
       }> = {
         success: true,
         data: {
-          channels: channels.channels,
-          total: channels.channels.length,
-          connected: channels.channels.filter(c => c.isConnected).length,
+          channels,
+          total: channels.length,
+          connected: channels.filter(c => c.isConnected).length,
         },
-        message: 'Channels retrieved successfully',
+        message: 'Channels retrieved successfully from Slack',
       };
 
       res.status(200).json(response);
     } catch (error) {
-      next(error);
+      console.error('Error fetching channels from Slack:', error);
+      
+      // Fallback to stored channels if Slack fails
+      try {
+        const storedChannels = await channelStorage.read();
+        
+        const response: ApiResponse<{
+          channels: Channel[];
+          total: number;
+          connected: number;
+        }> = {
+          success: true,
+          data: {
+            channels: storedChannels.channels,
+            total: storedChannels.channels.length,
+            connected: storedChannels.channels.filter(c => c.isConnected).length,
+          },
+          message: 'Channels retrieved from fallback data',
+        };
+
+        res.status(200).json(response);
+      } catch (fallbackError) {
+        next(error);
+      }
     }
   };
 

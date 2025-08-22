@@ -77,8 +77,9 @@ export class SlackService {
    */
   async getChannels(): Promise<Channel[]> {
     try {
+      // First try to get public channels only (we have permission for these)
       const result = await this.client.conversations.list({
-        types: 'public_channel,private_channel',
+        types: 'public_channel',
         exclude_archived: true,
       });
 
@@ -92,7 +93,7 @@ export class SlackService {
         squad: this.inferSquadFromChannelName(channel.name),
         isPrivate: channel.is_private,
         memberCount: channel.num_members,
-        isConnected: false, // Will be set by user
+        isConnected: true, // All fetched channels are connected
         createdAt: new Date(),
       }));
     } catch (error) {
@@ -200,6 +201,31 @@ export class SlackService {
       console.error('Error fetching users:', error);
       throw new CustomError('Failed to fetch users', 500);
     }
+  }
+
+  /**
+   * Get users (alias for getAllUsers for compatibility)
+   */
+  async getUsers(): Promise<User[]> {
+    return this.getAllUsers();
+  }
+
+  /**
+   * Infer squad from user name
+   */
+  inferSquadFromUserName(userName: string): string {
+    const name = userName.toLowerCase();
+    
+    // Map user names to squads based on patterns
+    if (name.includes('voice') || name.includes('ai')) return 'voice';
+    if (name.includes('epic') || name.includes('rcm')) return 'epic';
+    if (name.includes('portal') || name.includes('agg')) return 'portal-agg';
+    if (name.includes('hitl') || name.includes('arc')) return 'hitl';
+    if (name.includes('customer') || name.includes('facing')) return 'customer-facing';
+    if (name.includes('data') || name.includes('analytics')) return 'data-team';
+    if (name.includes('dev') || name.includes('engineer')) return 'dev-team';
+    
+    return 'general';
   }
 
   /**
@@ -317,7 +343,7 @@ export class SlackService {
   /**
    * Infer squad from channel name
    */
-  private inferSquadFromChannelName(channelName: string): string | undefined {
+  inferSquadFromChannelName(channelName: string): string | undefined {
     const squadPatterns = [
       { pattern: /frontend|react|vue|angular/i, squad: 'frontend' },
       { pattern: /backend|api|server/i, squad: 'backend' },
